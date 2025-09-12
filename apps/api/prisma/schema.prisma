@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS
+
+enum UserRole {
+  BUYER
+  VENDOR
+  ADMIN
+}
+
+enum ShopStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  SUSPENDED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+// MODELS
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  role          UserRole  @default(BUYER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLogin     DateTime?
+  isDisabled    Boolean   @default(false)
+
+  shop          Shop?
+  orders        Order[]
+  addresses     Address[]
+  auditLogs     AdminAuditLog[] @relation(name: "AdminActor")
+}
+
+model Shop {
+  id            String     @id @default(cuid())
+  ownerId       String     @unique
+  name          String
+  slug          String     @unique
+  description   String?    @db.Text
+  status        ShopStatus @default(PENDING_APPROVAL)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  owner         User       @relation(fields: [ownerId], references: [id])
+  products      Product[]
+  orders        Order[]
+  payouts       Payout[]
+
+  @@index([status])
+}
+
+model Product {
+  id           String        @id @default(cuid())
+  shopId       String
+  title        String
+  slug         String
+  description  String        @db.Text
+  priceCents   Int
+  currency     String        @default("EUR")
+  sku          String?
+  stock        Int           @default(0)
+  status       ProductStatus @default(DRAFT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  shop         Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  variants     ProductVariant[]
+  images       ProductImage[]
+  categories   ProductCategory[]
+  orderItems   OrderItem[]
+
+  @@unique([shopId, slug])
+  @@index([status, createdAt])
+}
+
+model ProductVariant {
+  id          String   @id @default(cuid())
+  productId   String
+  attributes  Json
+  priceCents  Int
+  stock       Int
+  sku         String?
+
+  product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+
+  @@unique([productId, sku])
+}
+
+model ProductImage {
+  id         String   @id @default(cuid())
+  productId  String
+  storageKey String
+  altText    String?
+  position   Int      @default(0)
+
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  parentId  String?
+
+  parent       Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children     Category[]        @relation("CategoryHierarchy")
+  products     ProductCategory[]
+}
+
+model ProductCategory {
+  productId   String
+  categoryId  String
+
+  product     Product   @relation(fields: [productId], references: [id])
+  category    Category  @relation(fields: [categoryId], references: [id])
+
+  @@id([productId, categoryId])
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  buyerId     String
+  shopId      String
+  totalCents  Int
+  currency    String
+  status      OrderStatus @default(PENDING_PAYMENT)
+  shippingAddressId String?
+  billingAddressId String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  buyer           User        @relation(fields: [buyerId], references: [id])
+  shop            Shop        @relation(fields: [shopId], references: [id])
+  items           OrderItem[]
+  payments        Payment[]
+  shippingAddress Address?    @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  billingAddress  Address?    @relation("BillingAddress", fields: [billingAddressId], references: [id])
+
+  @@index([buyerId, createdAt])
+  @@index([shopId, createdAt])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  productId   String
+  variantId   String?
+  priceCents  Int
+  quantity    Int
+
+  order       Order           @relation(fields: [orderId], references: [id])
+  product     Product         @relation(fields: [productId], references: [id])
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+model Address {
+  id           String  @id @default(cuid())
+  userId       String
+  street       String
+  city         String
+  postalCode   String
+  country      String
+  isDefault    Boolean @default(false)
+
+  user         User    @relation(fields: [userId], references: [id])
+  shippingOrders Order[] @relation("ShippingAddress")
+  billingOrders  Order[] @relation("BillingAddress")
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  orderId           String
+  provider          String
+  providerPaymentId String   @unique
+  status            String
+  amountCents       Int
+  createdAt         DateTime @default(now())
+
+  order             Order    @relation(fields: [orderId], references: [id])
+}
+
+model Payout {
+  id            String   @id @default(cuid())
+  shopId        String
+  amountCents   Int
+  status        String
+  initiatedAt   DateTime @default(now())
+  completedAt   DateTime?
+
+  shop          Shop     @relation(fields: [shopId], references: [id])
+}
+
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  actor     User     @relation(name: "AdminActor", fields: [actorId], references: [id])
+}
