@@ -1,0 +1,18 @@
+{
+  "name": "webshop-multivendor",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "lint": "echo 'lint placeholder'",
+    "typecheck": "echo 'typecheck placeholder'",
+    "build": "echo 'build placeholder'",
+    "dev": "echo 'dev placeholder'",
+    "format": "prettier -w ."
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}
