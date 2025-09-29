@@ -55,6 +55,8 @@ model User {
   orders        Order[]
   addresses     Address[]
   auditLogs     AdminAuditLog[] @relation(name: "AdminActor")
+
+  @@index([name])
 }
 
 model Shop {
@@ -97,6 +99,12 @@ model Product {
 
   @@unique([shopId, slug])
   @@index([status, createdAt])
+  // Speed up vendor lists and counts per shop by status/createdAt/stock
+  @@index([shopId, status, createdAt])
+  @@index([shopId, stock])
+  @@index([shopId, createdAt])
+  // Basic index for title searches (note: for contains queries consider pg_trgm GIN in a future migration)
+  @@index([title])
 }
 
 model ProductVariant {
@@ -164,6 +172,9 @@ model Order {
 
   @@index([buyerId, createdAt])
   @@index([shopId, createdAt])
+  // Speed up status-based lookups and listings
+  @@index([shopId, status, createdAt])
+  @@index([status, createdAt])
 }
 
 model OrderItem {
@@ -177,6 +188,9 @@ model OrderItem {
   order       Order           @relation(fields: [orderId], references: [id])
   product     Product         @relation(fields: [productId], references: [id])
   variant     ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([productId])
+  @@index([orderId])
 }
 
 model Address {

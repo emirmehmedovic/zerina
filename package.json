@@ -6,13 +6,23 @@
     "apps/*"
   ],
   "scripts": {
-    "lint": "echo 'lint placeholder'",
-    "typecheck": "echo 'typecheck placeholder'",
-    "build": "echo 'build placeholder'",
-    "dev": "echo 'dev placeholder'",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
+    "typecheck": "npm run -w api typecheck && npm run -w web typecheck",
+    "build": "npm run -w api build && npm run -w web build",
+    "dev": "echo 'Run dev servers individually: npm run -w api dev | npm run -w web dev'",
     "format": "prettier -w ."
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.7.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "eslint": "^9.10.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-unused-imports": "^4.0.0",
     "prettier": "^3.3.3"
+  },
+  "dependencies": {
+    "framer-motion": "^12.23.22",
+    "liquid-glass-react": "^1.1.1",
+    "lucide-react": "^0.544.0"
   }
 }

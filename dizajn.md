@@ -1,32 +1,34 @@
 {
   "design_direction_prompt": {
-    "name": "Modern Minimalist with Soft UI & BentoGrid (Tailwind CSS)",
-    "description": "Dizajn pravac fokusiran na čistoću i strukturu, implementiran kroz Tailwind CSS. Koristi minimalističku paletu, zaobljene uglove i meke sjene. Layout je organizovan po BentoGrid principu, a stil izričito izbjegava staklene efekte, jake gradijente i prozirnost.",
+    "name": "Modern Glassmorphism with BentoGrid (Tailwind CSS)",
+    "description": "Dizajn pravac koji stvara osjećaj dubine i modernosti koristeći Glassmorphism (Frosted Glass) efekte, implementiran kroz Tailwind CSS. Stil se oslanja na prozirne pozadine, pozadinski blur (backdrop-blur), suptilne ivice i meke sjene. Layout je organizovan po BentoGrid principu.",
     "core_principles": [
-      "Jasnoća ispred dekoracije",
+      "Slojevitost i dubina",
       "Sadržaj na prvom mjestu",
-      "Velikodušan prazan prostor (whitespace)",
-      "Konzistentnost i hijerarhija"
+      "Vizualna hijerarhija kroz prozirnost i blur",
+      "Velikodušan prazan prostor"
     ],
+    "background_requirements": {
+      "important": "Glassmorphism efekat je vidljiv jedino ako postoji vizualno interesantna pozadina iza 'staklenih' elemenata. Najbolje funkcioniše preko gradijenata, fotografija ili apstraktnih oblika.",
+      "suggestion": "Koristiti suptilni, spori gradijent ili kvalitetnu pozadinsku sliku na 'body' elementu."
+    },
     "tailwind_config": {
       "theme": {
         "extend": {
           "colors": {
             "light": {
-              "background": "#F7F8FA",
-              "card": "#FFFFFF",
+              "background": "#F7F8FA", // Koristi se za osnovnu pozadinu ako nema slike
               "text": "#111827",
-              "muted": "#6B7280",
-              "border": "#E5E7EB",
-              "accent": "#007AFF"
+              "muted": "#374151",
+              "accent": "#007AFF",
+              "glass-border": "rgba(255, 255, 255, 0.3)"
             },
             "dark": {
               "background": "#0A0A0A",
-              "card": "#1A1A1A",
               "text": "#E5E7EB",
-              "muted": "#9CA3AF",
-              "border": "#27272A",
-              "accent": "#0A84FF"
+              "muted": "#A1A1AA",
+              "accent": "#0A84FF",
+              "glass-border": "rgba(255, 255, 255, 0.1)"
             }
           },
           "borderRadius": {
@@ -34,41 +36,48 @@
             "card-lg": "1.5rem" // 24px
           },
           "boxShadow": {
-            "card": "0px 8px 24px rgba(0, 0, 0, 0.05)",
-            "card-hover": "0px 12px 32px rgba(0, 0, 0, 0.08)"
+            "card": "0px 8px 32px rgba(0, 0, 0, 0.1)",
+            "card-hover": "0px 12px 40px rgba(0, 0, 0, 0.15)"
           },
           "fontFamily": {
             "sans": ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "Noto Sans", "sans-serif"]
           },
           "spacing": {
-            "card-p": "1.5rem",     // 24px
-            "card-p-lg": "2rem", // 32px
-            "grid-gap": "1rem"    // 16px
+            "card-p": "1.5rem",
+            "card-p-lg": "2rem",
+            "grid-gap": "1rem"
+          },
+          "backdropBlur": {
+            "card": "16px"
           }
         }
       }
     },
     "implementation_examples": {
       "bento_grid_layout": {
-        "description": "Koristiti `grid` i `gap-4` (ili `gap-grid-gap` ako je definisano) za kontejner. Pojedinačne kartice mogu zauzimati više kolona/redova sa `col-span-2` ili `row-span-2`.",
+        "description": "Isti princip kao prije: `grid` kontejner sa `gap-4`. Najbolje izgleda preko pozadine sa gradijentom ili slikom.",
         "html_class_example": "<div class='grid grid-cols-4 auto-rows-fr gap-4 p-4'>"
       },
-      "card_component": {
-        "description": "Osnovna kartica koja koristi definisane Tailwind tokene. Puna boja, zaobljeni uglovi i suptilna ivica. Tranzicija za gladak hover efekat.",
-        "light_mode_classes": "bg-light-card text-light-text border border-light-border rounded-card p-card-p shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300",
-        "dark_mode_classes": "dark:bg-dark-card dark:text-dark-text dark:border-dark-border"
+      "card_component_glass": {
+        "description": "Ovo je ključni element. Koristi prozirnu pozadinu, backdrop-blur, suptilnu ivicu i sjenu za stvaranje 'staklenog' efekta.",
+        "light_mode_classes": "bg-white/30 text-light-text border border-light-glass-border rounded-card-lg p-card-p shadow-card backdrop-blur-card hover:shadow-card-hover hover:border-white/50 hover:-translate-y-1 transition-all duration-300",
+        "dark_mode_classes": "dark:bg-zinc-800/30 dark:text-dark-text dark:border-dark-glass-border dark:hover:border-white/20"
       },
       "primary_button": {
-        "description": "Dugme koje koristi akcentnu boju.",
-        "html_class_example": "<button class='bg-light-accent text-white font-medium py-2 px-4 rounded-lg hover:opacity-90 transition-opacity'>"
+        "description": "Primarno dugme je i dalje najbolje da bude **neprozirno (opaque)** zbog čitljivosti i pristupačnosti (Accessibility).",
+        "html_class_example": "<button class='bg-light-accent text-white font-medium py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-all'>"
+      },
+      "secondary_button_glass": {
+        "description": "Sekundarno ili 'ghost' dugme može koristiti glassmorphism efekat.",
+        "html_class_example": "<button class='bg-white/20 backdrop-blur-sm border border-light-glass-border text-light-text font-medium py-2 px-4 rounded-lg hover:bg-white/30 transition-colors'>"
       },
       "typography": {
         "h1": "text-4xl font-bold text-light-text dark:text-dark-text",
         "p_muted": "text-light-muted dark:text-dark-muted"
       },
-      "iconography": {
-        "description": "Koristiti SVG ikone (npr. iz Heroicons biblioteke) sa `stroke-1.5` ili `stroke-2`.",
-        "svg_class_example": "<svg class='w-6 h-6 text-light-muted' stroke-width='1.5' ...>"
+      "advanced_touch": {
+        "description": "Za dodatni 'liquid glass' osjećaj, može se dodati suptilni, prozirni gradijent na ivicu kartice koristeći pseudo-elemente (`::before`, `::after`) ili `background-clip: padding-box, border-box`.",
+        "note": "Ovo je naprednija tehnika i nije direktno podržana osnovnim Tailwind klasama, zahtijeva custom CSS ili Tailwind plugin."
       }
     }
   }

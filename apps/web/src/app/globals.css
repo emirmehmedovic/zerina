@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+/* Design tokens (from dizajn.md — Glassmorphism with BentoGrid) */
+@theme inline {
+  /* Light */
+  --color-light-background: #F7F8FA; /* base bg if no image */
+  --color-light-text: #111827;
+  --color-light-muted: #374151;
+  --color-light-accent: #007AFF;
+  --color-light-glass-border: rgba(255, 255, 255, 0.3);
+
+  /* Dark */
+  --color-dark-background: #0A0A0A;
+  --color-dark-text: #E5E7EB;
+  --color-dark-muted: #A1A1AA;
+  --color-dark-accent: #0A84FF;
+  --color-dark-glass-border: rgba(255, 255, 255, 0.1);
+
+  /* Radius */
+  --radius-card: 1rem;        /* 16px */
+  --radius-card-lg: 1.5rem;   /* 24px */
+
+  /* Shadows (more pronounced for glass) */
+  --shadow-card: 0px 8px 32px rgba(0, 0, 0, 0.1);
+  --shadow-card-hover: 0px 12px 40px rgba(0, 0, 0, 0.15);
+
+  /* Fonts */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+
+  /* Spacing */
+  --spacing-card-p: 1.5rem;    /* 24px */
+  --spacing-card-p-lg: 2rem;   /* 32px */
+  --spacing-grid-gap: 1rem;    /* 16px */
+
+  /* Backdrop blur */
+  --blur-card: 16px;
+
+  /* Glass background (OKLab) tokens */
+  --glass-a0: oklab(78.1% -0.003 -0.022);
+  --glass-a10: oklab(88.3% 0.001 -0.003);
+  --glass-a20: oklab(96.5% -0.003 -0.005);
+  --glass-a30: oklab(98.5% 0 0);
+
+  /* Aurora animation */
+  --animate-aurora: aurora 30s linear infinite;
+  @keyframes aurora {
+    from { background-position: 50% 50%, 50% 50%; }
+    to { background-position: 400% 50%, 400% 50%; }
+  }
+}
+
+/* Base colors for body + gradient background for glass to shine */
+:root {
+  --background: var(--color-light-background);
+  --foreground: var(--color-light-text);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--color-dark-background);
+    --foreground: var(--color-dark-text);
+  }
+}
+
+body {
+  /* Make body transparent to show global fixed background image */
+  background: transparent;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+/* Aurora animated background layer */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* dark grey/black aurora glows */
+  background-image:
+    radial-gradient(40% 40% at 20% 20%, rgba(24, 24, 27, 0.40), rgba(0, 0, 0, 0) 70%),
+    radial-gradient(40% 40% at 80% 60%, rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0) 70%);
+  background-repeat: no-repeat;
+  background-size: 240% 240%, 240% 240%;
+  background-position: 50% 50%, 50% 50%;
+  filter: blur(44px) saturate(200%);
+  opacity: 0.85;
+  animation: var(--animate-aurora);
+}
+.dark .aurora-bg {
+  background-image:
+    radial-gradient(40% 40% at 20% 20%, rgba(10, 10, 10, 0.40), rgba(0, 0, 0, 0) 70%),
+    radial-gradient(40% 40% at 80% 60%, rgba(39, 39, 42, 0.35), rgba(0, 0, 0, 0) 70%);
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-bg { animation: none; }
+}
+
+/* Utilities mapped to tokens */
+.card-base {
+  border-radius: var(--radius-card);
+  padding: var(--spacing-card-p);
+  box-shadow: var(--shadow-card);
+  transition: all 300ms;
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+/* Glass card (primary component) */
+.card-glass {
+  background: rgba(255,255,255,0.30);
+  color: var(--color-light-text);
+  border: 1px solid var(--color-light-glass-border);
+  backdrop-filter: blur(var(--blur-card));
+  border-radius: var(--radius-card-lg);
+}
+.dark .card-glass {
+  background: rgba(39,39,42,0.30); /* zinc-800/30 */
+  color: var(--color-dark-text);
+  border-color: var(--color-dark-glass-border);
+}
+
+/* Primary button (opaque for accessibility) */
+.btn-primary {
+  @apply bg-light-accent text-white font-medium py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-all;
+}
