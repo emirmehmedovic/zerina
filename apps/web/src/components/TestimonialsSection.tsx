@@ -74,7 +74,7 @@ export default function TestimonialsSection() {
                   </div>
 
                   <p className="text-zinc-200 text-sm leading-relaxed flex-1">
-                    "{testimonial.text}"
+                    &quot;{testimonial.text}&quot;
                   </p>
                 </div>
               </HeroLiquidGlass>

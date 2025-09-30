@@ -33,9 +33,14 @@ export default function RegisterPage() {
       push({ type: "success", title: "Account created", message: "You are now signed in." });
       router.push("/");
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || "Register failed");
-      push({ type: "error", title: "Register failed", message: err.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+        push({ type: "error", title: "Register failed", message: err.message });
+      } else {
+        setError("Register failed");
+        push({ type: "error", title: "Register failed", message: "Unknown error" });
+      }
     } finally {
       setLoading(false);
     }

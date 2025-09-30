@@ -116,7 +116,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Link>
                 </li>
                 <li>
-                  <LogoutButton classNameOverride="group flex w-full items-center px-3 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors" />
+                  <LogoutButton className="group flex w-full items-center px-3 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors" />
                 </li>
               </ul>
             </div>
@@ -184,7 +184,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div className="px-1 py-1">
                         <HeadlessMenu.Item>
                           {({ active }) => (
-                            <LogoutButton classNameOverride={`${active ? 'bg-white/10 text-white' : 'text-zinc-300'} group flex w-full items-center rounded-md px-2 py-2 text-sm`} />
+                            <LogoutButton className={`${active ? 'bg-white/10 text-white' : 'text-zinc-300'} group flex w-full items-center rounded-md px-2 py-2 text-sm`} />
                           )}
                         </HeadlessMenu.Item>
                       </div>

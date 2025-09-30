@@ -35,8 +35,12 @@ export default function VendorAnalyticsPage() {
       if (sres.ok) { const b = await sres.json(); setSeries(b.series || []); }
       if (pres.ok) { const b = await pres.json(); setTopProducts(b.items || []); }
       if (cres.ok) { const b = await cres.json(); setTopCustomers(b.items || []); }
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load analytics');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError('Failed to load analytics');
+      }
     } finally {
       setLoading(false);
     }

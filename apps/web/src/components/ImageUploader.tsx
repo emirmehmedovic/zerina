@@ -21,7 +21,11 @@ export default function ImageUploader({ onUpload }: ImageUploaderProps) {
         onUpload(result.path);
       }
     } catch (err) {
-      alert((err as any)?.message || 'Upload failed');
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert('Upload failed');
+      }
     } finally {
       setUploading(false);
     }

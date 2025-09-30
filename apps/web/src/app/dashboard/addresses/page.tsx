@@ -21,8 +21,12 @@ export default function MyAddressesPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setItems(body.items || []);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load addresses");
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setLoading(false);
     }
@@ -46,8 +50,12 @@ export default function MyAddressesPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setForm({ id: "", street: "", city: "", postalCode: "", country: "" });
       load();
-    } catch (e: any) {
-      alert(e?.message || 'Failed to add address');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        alert(e.message);
+      } else {
+        alert('An unknown error occurred');
+      }
     } finally {
       setSaving(false);
     }
@@ -60,12 +68,16 @@ export default function MyAddressesPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setItems((prev) => prev.filter((a) => a.id !== id));
-    } catch (e: any) {
-      alert(e?.message || 'Failed to delete');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        alert(e.message);
+      } else {
+        alert('An unknown error occurred');
+      }
     }
   };
 
-  const FormInput = ({ label, id, ...props }: any) => (
+  const FormInput = ({ label, id, ...props }: { label: string; id: string; [key: string]: unknown }) => (
     <div>
       <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor={id}>{label}</label>
       <input id={id} {...props} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
@@ -86,12 +98,12 @@ export default function MyAddressesPage() {
           <h3 className="text-lg font-semibold text-white mb-4">Add New Address</h3>
           <form onSubmit={onAdd} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <FormInput label="Street Address" id="street" placeholder="123 Main St" value={form.street} onChange={(e:any) => setForm({ ...form, street: e.target.value })} required />
+              <FormInput label="Street Address" id="street" placeholder="123 Main St" value={form.street} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, street: e.target.value })} required />
             </div>
-            <FormInput label="City" id="city" placeholder="Anytown" value={form.city} onChange={(e:any) => setForm({ ...form, city: e.target.value })} required />
-            <FormInput label="Postal Code" id="postalCode" placeholder="12345" value={form.postalCode} onChange={(e:any) => setForm({ ...form, postalCode: e.target.value })} required />
+            <FormInput label="City" id="city" placeholder="Anytown" value={form.city} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, city: e.target.value })} required />
+            <FormInput label="Postal Code" id="postalCode" placeholder="12345" value={form.postalCode} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, postalCode: e.target.value })} required />
             <div className="md:col-span-2">
-              <FormInput label="Country" id="country" placeholder="United States" value={form.country} onChange={(e:any) => setForm({ ...form, country: e.target.value })} required />
+              <FormInput label="Country" id="country" placeholder="United States" value={form.country} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, country: e.target.value })} required />
             </div>
             <div className="md:col-span-2 flex justify-end">
               <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-transparent bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors" disabled={saving}>

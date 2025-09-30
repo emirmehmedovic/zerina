@@ -20,7 +20,7 @@ export default async function CategoryDetailPage({ params, searchParams }: { par
     if (resCats.ok) {
       const raw = await resCats.json();
       const base = Array.isArray(raw) ? raw : Array.isArray(raw?.items) ? raw.items : [];
-      categories = base.map((c: any) => ({ id: c.id, name: c.name, slug: c.slug || c.name?.toLowerCase?.().replace(/[^a-z0-9]+/g,'-') }));
+            categories = base.map((c: { id: string; name: string; slug?: string }) => ({ id: c.id, name: c.name, slug: c.slug || c.name?.toLowerCase?.().replace(/[^a-z0-9]+/g,'-') }));
     }
   } catch {}
 

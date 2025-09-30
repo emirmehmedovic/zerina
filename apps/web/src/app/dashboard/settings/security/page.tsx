@@ -40,14 +40,18 @@ export default function SecuritySettingsPage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred');
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const FormInput = ({ label, id, ...props }: any) => (
+  const FormInput = ({ label, id, ...props }: { label: string; id: string; [key: string]: unknown }) => (
     <div>
       <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor={id}>{label}</label>
       <input id={id} {...props} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
@@ -67,9 +71,9 @@ export default function SecuritySettingsPage() {
         <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Change Password</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <FormInput label="Current Password" id="currentPassword" type="password" value={currentPassword} onChange={(e:any) => setCurrentPassword(e.target.value)} required />
-            <FormInput label="New Password" id="newPassword" type="password" value={newPassword} onChange={(e:any) => setNewPassword(e.target.value)} required />
-            <FormInput label="Confirm New Password" id="confirmPassword" type="password" value={confirmPassword} onChange={(e:any) => setConfirmPassword(e.target.value)} required />
+            <FormInput label="Current Password" id="currentPassword" type="password" value={currentPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentPassword(e.target.value)} required />
+            <FormInput label="New Password" id="newPassword" type="password" value={newPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)} required />
+            <FormInput label="Confirm New Password" id="confirmPassword" type="password" value={confirmPassword} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)} required />
             <div className="flex justify-end pt-2">
               <button type="submit" className="px-4 py-2 rounded-lg border border-transparent bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors" disabled={submitting}>
                 {submitting ? 'Saving...' : 'Update Password'}

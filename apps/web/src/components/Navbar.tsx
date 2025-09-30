@@ -7,7 +7,7 @@ import { ShoppingCart } from 'lucide-react';
 import LiquidGlass from './ui/LiquidGlass';
 import HeaderAuth from './HeaderAuth';
 import CartLink from './CartLink';
-import SearchBar from './ui/SearchBar';
+import SuspenseWrapper from './ui/SuspenseWrapper';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -77,7 +77,7 @@ export default function Navbar() {
             {/* Right: Search + Cart + Auth (tri stavke) */}
             <div className="flex items-center gap-2 md:gap-3">
               <div className="hidden md:block">
-                <SearchBar compact />
+                <SuspenseWrapper />
               </div>
               <CartLink />
               <HeaderAuth />
@@ -105,7 +105,7 @@ export default function Navbar() {
             <div className="md:hidden px-6 py-4 border-t border-white/10 text-white">
               <div className="flex flex-col space-y-3">
                 <div className="pb-2">
-                  <SearchBar className="w-full" />
+                  <SuspenseWrapper />
                 </div>
                 {links.map((l) => (
                   <Link key={l.href} href={l.href} className="px-3 py-2 rounded-lg hover:bg-white/10">

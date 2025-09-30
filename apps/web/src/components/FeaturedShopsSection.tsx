@@ -3,6 +3,9 @@
 import { motion } from "framer-motion";
 import { Store, ArrowRight } from "lucide-react";
 import HeroLiquidGlass from "./ui/HeroLiquidGlass";
+import Link from 'next/link';
+
+const MotionLink = motion(Link);
 
 type Shop = {
   id: string;
@@ -30,18 +33,18 @@ export default function FeaturedShopsSection({ shops }: FeaturedShopsSectionProp
               Discover our curated vendors
             </p>
           </div>
-          <a 
+          <Link 
             href="/shops" 
             className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 dark:bg-black/10 dark:hover:bg-black/20 backdrop-blur-sm border border-white/20 transition-all duration-300 text-zinc-900 dark:text-zinc-100 font-medium group hover:scale-105"
           >
             View All Shops
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {shops.slice(0, 4).map((shop, index) => (
-            <motion.a
+            <MotionLink
               key={shop.id}
               href={`/shops/${shop.slug}`}
               initial={{ opacity: 0, y: 20 }}
@@ -61,7 +64,7 @@ export default function FeaturedShopsSection({ shops }: FeaturedShopsSectionProp
                   )}
                 </div>
               </HeroLiquidGlass>
-            </motion.a>
+            </MotionLink>
           ))}
         </div>
       </div>

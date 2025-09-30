@@ -5,6 +5,7 @@ import { API_URL } from "@/lib/api";
 import { getCsrfToken } from "@/lib/csrf";
 import { useToast } from "@/components/ToastProvider";
 import { Plus, Search, Edit, Trash2, Archive, Eye } from 'lucide-react';
+import Image from 'next/image';
 
 type Product = {
   id: string;
@@ -118,8 +119,12 @@ export default function DashboardProductsPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setItems((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: 'ARCHIVED' } : x)));
       push({ type: 'success', title: 'Archived', message: `${p.title} archived.` });
-    } catch (e: any) {
-      push({ type: 'error', title: 'Archive failed', message: e?.message || 'Unknown error' });
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        push({ type: 'error', title: 'Archive failed', message: e.message });
+      } else {
+        push({ type: 'error', title: 'Archive failed', message: 'Unknown error' });
+      }
     }
   };
 
@@ -135,8 +140,12 @@ export default function DashboardProductsPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setItems((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)));
-    } catch (e: any) {
-      push({ type: 'error', title: 'Update failed', message: e?.message || 'Unknown error' });
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        push({ type: 'error', title: 'Update failed', message: e.message });
+      } else {
+        push({ type: 'error', title: 'Update failed', message: 'Unknown error' });
+      }
     }
   };
 
@@ -164,8 +173,12 @@ export default function DashboardProductsPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setItems((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: next } : x)));
       push({ type: "success", title: "Status updated", message: `${p.title} → ${next}` });
-    } catch (err: any) {
-      push({ type: "error", title: "Update failed", message: err?.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        push({ type: "error", title: "Update failed", message: err.message });
+      } else {
+        push({ type: "error", title: "Update failed", message: "Unknown error" });
+      }
     }
   };
 
@@ -207,8 +220,12 @@ export default function DashboardProductsPage() {
       }
       push({ type: "success", title: "Deleted", message: "Product removed." });
       await load();
-    } catch (err: any) {
-      push({ type: "error", title: "Delete failed", message: err.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        push({ type: "error", title: "Delete failed", message: err.message });
+      } else {
+        push({ type: "error", title: "Delete failed", message: "Unknown error" });
+      }
     }
   };
 
@@ -238,8 +255,12 @@ export default function DashboardProductsPage() {
       push({ type: 'success', title: 'Updated', message: `Set ${selectedIds.length} to ${next}` });
       setSelected({});
       await load();
-    } catch (e: any) {
-      push({ type: 'error', title: 'Bulk failed', message: e?.message || 'Unknown error' });
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        push({ type: 'error', title: 'Bulk failed', message: e.message });
+      } else {
+        push({ type: 'error', title: 'Bulk failed', message: 'Unknown error' });
+      }
     } finally {
       setBulkLoading(null);
     }
@@ -261,8 +282,12 @@ export default function DashboardProductsPage() {
       push({ type: 'success', title: 'Deleted', message: `Removed ${selectedIds.length} products` });
       setSelected({});
       await load();
-    } catch (e: any) {
-      push({ type: 'error', title: 'Bulk delete failed', message: e?.message || 'Unknown error' });
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        push({ type: 'error', title: 'Bulk delete failed', message: e.message });
+      } else {
+        push({ type: 'error', title: 'Bulk delete failed', message: 'Unknown error' });
+      }
     } finally {
       setBulkLoading(null);
     }
@@ -343,7 +368,7 @@ export default function DashboardProductsPage() {
               </div>
               <div className="col-span-1">
                 {p.images && p.images.length > 0 ? (
-                  <img src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} className="h-14 w-14 object-cover rounded-lg" />
+                  <Image src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} width={56} height={56} className="h-14 w-14 object-cover rounded-lg" />
                 ) : (
                   <div className="h-14 w-14 rounded-lg bg-black/20" />
                 )}

@@ -60,8 +60,14 @@ export default function NewProductPage() {
             : [];
           if (!cancelled) setAllCategories(cats);
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "Failed to load your shop");
+      } catch (e: unknown) {
+        if (!cancelled) {
+          if (e instanceof Error) {
+            setError(e.message);
+          } else {
+            setError("Failed to load your shop");
+          }
+        }
       } finally {
         if (!cancelled) setLoadingShop(false);
       }
@@ -96,28 +102,32 @@ export default function NewProductPage() {
       }
       const data = (await res.json()) as CreatedProduct;
       setCreated(data);
-    } catch (err: any) {
-      setError(err?.message || "Failed to create product");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to create product");
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const FormInput = ({ label, id, ...props }: any) => (
+  const FormInput = ({ label, id, ...props }: { label: string; id: string; [key: string]: unknown }) => (
     <div>
       <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor={id}>{label}</label>
       <input id={id} {...props} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
     </div>
   );
 
-  const FormTextarea = ({ label, id, ...props }: any) => (
+  const FormTextarea = ({ label, id, ...props }: { label: string; id: string; [key: string]: unknown }) => (
     <div>
       <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor={id}>{label}</label>
       <textarea id={id} {...props} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
     </div>
   );
 
-  const FormSelect = ({ label, id, children, ...props }: any) => (
+  const FormSelect = ({ label, id, children, ...props }: { label: string; id: string; children: React.ReactNode; [key: string]: unknown }) => (
     <div>
       <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor={id}>{label}</label>
       <select id={id} {...props} className="w-full border border-white/10 rounded-lg px-3 py-2 bg-black/20 backdrop-blur-md text-zinc-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
@@ -155,8 +165,8 @@ export default function NewProductPage() {
             <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Core Details</h3>
               <div className="space-y-4">
-                <FormInput label="Title" id="title" required value={title} onChange={(e:any) => setTitle(e.target.value)} placeholder="e.g., Artisan Ceramic Mug" />
-                <FormTextarea label="Description" id="description" required rows={6} value={description} onChange={(e:any) => setDescription(e.target.value)} placeholder="Describe your product's features, materials, and story..." />
+                <FormInput label="Title" id="title" required value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} placeholder="e.g., Artisan Ceramic Mug" />
+                <FormTextarea label="Description" id="description" required rows={6} value={description} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)} placeholder="Describe your product's features, materials, and story..." />
               </div>
             </div>
 
@@ -182,9 +192,9 @@ export default function NewProductPage() {
             <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Pricing & Inventory</h3>
               <div className="space-y-4">
-                <FormInput label="Price (in cents)" id="price" type="number" min={0} value={priceCents} onChange={(e:any) => setPriceCents(Number(e.target.value))} />
-                <FormInput label="Currency" id="currency" value={currency} onChange={(e:any) => setCurrency(e.target.value.toUpperCase())} />
-                <FormInput label="Stock" id="stock" type="number" min={0} value={stock} onChange={(e:any) => setStock(Number(e.target.value))} />
+                <FormInput label="Price (in cents)" id="price" type="number" min={0} value={priceCents} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPriceCents(Number(e.target.value))} />
+                <FormInput label="Currency" id="currency" value={currency} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrency(e.target.value.toUpperCase())} />
+                <FormInput label="Stock" id="stock" type="number" min={0} value={stock} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStock(Number(e.target.value))} />
               </div>
             </div>
 
@@ -192,7 +202,7 @@ export default function NewProductPage() {
             <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Organization</h3>
               <div className="space-y-4">
-                <FormSelect label="Status" id="status" value={status} onChange={(e:any) => setStatus(e.target.value)}>
+                <FormSelect label="Status" id="status" value={status} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatus(e.target.value as "DRAFT" | "PUBLISHED" | "ARCHIVED" | "SUSPENDED")}>
                   <option value="DRAFT">Draft</option>
                   <option value="PUBLISHED">Published</option>
                 </FormSelect>

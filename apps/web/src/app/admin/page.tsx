@@ -1,6 +1,11 @@
 import { API_URL } from "@/lib/api";
 import StatTile from '@/components/ui/StatTile';
 import { Store, CheckCircle, Package, AlertTriangle, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
+
+type Product = {
+  stock?: number;
+};
 
 async function getCounts() {
   const [shopsAll, shopsPending, shopsActive, productsAll, lowStock] = await Promise.all([
@@ -9,7 +14,7 @@ async function getCounts() {
     fetch(`${API_URL}/api/v1/shops?status=ACTIVE&take=1`, { cache: "no-store", credentials: "include" }).then(r => r.ok ? r.json() : { total: 0 }).catch(() => ({ total: 0 })),
     fetch(`${API_URL}/api/v1/products/admin/list?take=1`, { cache: "no-store", credentials: "include" }).then(r => r.ok ? r.json() : { total: 0 }).catch(() => ({ total: 0 })),
     fetch(`${API_URL}/api/v1/products/admin/list?q=&take=1`, { cache: "no-store", credentials: "include" })
-      .then(r => r.ok ? r.json() : { items: [], total: 0 }).then(data => ({ count: (data.items || []).filter((p: any) => (p.stock ?? 0) < 5).length }))
+      .then(r => r.ok ? r.json() : { items: [], total: 0 }).then(data => ({ count: (data.items || []).filter((p: Product) => (p.stock ?? 0) < 5).length }))
       .catch(() => ({ count: 0 })),
   ]);
   return {
@@ -35,15 +40,15 @@ export default async function AdminOverviewPage() {
         <div className="lg:col-span-2 rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
           <div className="flex flex-wrap gap-4">
-            <a href="/admin/inventory" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 transition-colors">
+            <Link href="/admin/inventory" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 transition-colors">
               Manage Inventory <ArrowRight size={16} />
-            </a>
-            <a href="/admin/products/new" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 transition-colors">
+            </Link>
+            <Link href="/admin/products/new" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 transition-colors">
               Create Product <ArrowRight size={16} />
-            </a>
-            <a href="/admin/shops" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 transition-colors">
+            </Link>
+            <Link href="/admin/shops" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 transition-colors">
               Review Shops <ArrowRight size={16} />
-            </a>
+            </Link>
           </div>
         </div>
         <div className="rounded-2xl bg-gradient-to-br from-red-500/20 to-orange-600/20 backdrop-blur-md border border-red-500/30 p-6">

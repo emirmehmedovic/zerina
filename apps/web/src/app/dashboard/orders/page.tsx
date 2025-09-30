@@ -14,6 +14,7 @@ type VendorOrder = {
   status: "PENDING_PAYMENT"|"PROCESSING"|"SHIPPED"|"DELIVERED"|"CANCELLED"|"REFUNDED";
   createdAt: string;
   items: { id: string; productId: string; variantId?: string; quantity: number; priceCents: number }[];
+  buyer?: { email: string; name: string };
 };
 
 export default function VendorOrdersPage() {
@@ -46,8 +47,12 @@ export default function VendorOrdersPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setOrders(body.items || []);
       setTotal(body.total || 0);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load orders');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError('Failed to load orders');
+      }
     } finally {
       setLoading(false);
     }
@@ -79,8 +84,8 @@ export default function VendorOrdersPage() {
         o.status,
         o.currency,
         String(o.totalCents),
-        (o as any).buyer?.email || '',
-        (o as any).buyer?.name || ''
+        o.buyer?.email || '',
+        o.buyer?.name || ''
       ]);
       // Add item rows as well (prefixed)
       for (const it of o.items || []) {
@@ -124,8 +129,12 @@ export default function VendorOrdersPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: next } : o)));
-    } catch (e: any) {
-      alert(e?.message || 'Failed to update status');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        alert(e.message);
+      } else {
+        alert('Failed to update status');
+      }
     } finally {
       setUpdatingId(null);
     }
@@ -195,7 +204,7 @@ export default function VendorOrdersPage() {
                 <div className="grid grid-cols-10 items-center gap-4">
                   <div className="col-span-3">
                     <div className="font-mono text-xs text-zinc-500">#{o.id}</div>
-                    <div className="font-semibold text-white">{(o as any).buyer?.name || 'Unknown Customer'}</div>
+                    <div className="font-semibold text-white">{o.buyer?.name || 'Unknown Customer'}</div>
                   </div>
                   <div className="col-span-2">
                     <StatusBadge status={o.status} />

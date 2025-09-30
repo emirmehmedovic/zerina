@@ -63,8 +63,12 @@ export default function ProductAnalyticsPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       if (!body.product) throw new Error('Product not found or not owned by you');
       setData(body);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load product analytics');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError('Failed to load product analytics');
+      }
     } finally {
       setLoading(false);
     }

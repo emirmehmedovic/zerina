@@ -8,6 +8,7 @@ import NewsletterSection from "@/components/NewsletterSection";
 import WhyChooseUsSection from "@/components/WhyChooseUsSection";
 import TrendingProductsSection from "@/components/TrendingProductsSection";
 import { ArrowRight } from "lucide-react";
+import Link from 'next/link';
 
 type Product = { id: string; title: string; slug: string; priceCents: number; currency: string; images?: { storageKey: string }[] };
 type Category = { id: string; name: string; slug: string };
@@ -61,13 +62,13 @@ export default async function Home() {
                 Handpicked items just for you
               </p>
             </div>
-            <a 
+            <Link 
               href="/products" 
               className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 dark:bg-black/10 dark:hover:bg-black/20 backdrop-blur-sm border border-white/20 transition-all duration-300 text-zinc-900 dark:text-zinc-100 font-medium group hover:scale-105"
             >
               View All
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </a>
+            </Link>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -2,6 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from 'next/link';
+
+type ValidatedItem = {
+  shopId: string;
+  shop: { name: string; slug: string };
+  title: string;
+  variantId?: string;
+  qty: number;
+  priceCents: number;
+};
+
+type ValidatedData = {
+  items: ValidatedItem[];
+  totalCents: number;
+  currency: string;
+};
+
+type Group = {
+  shop?: { name: string; slug: string };
+  rows: ValidatedItem[];
+  subtotal: number;
+};
 import { useCart } from "@/components/CartProvider";
 import { API_URL } from "@/lib/api";
 import { getCsrfToken } from "@/lib/csrf";
@@ -13,9 +35,9 @@ export default function CheckoutReviewPage() {
   const [billing, setBilling] = useState<{ street: string; city: string; postalCode: string; country: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [validated, setValidated] = useState<{ items: any[]; totalCents: number; currency: string } | null>(null);
+  const [validated, setValidated] = useState<ValidatedData | null>(null);
   const [placing, setPlacing] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<unknown>(null);
 
   useEffect(() => {
     try {
@@ -56,8 +78,12 @@ export default function CheckoutReviewPage() {
         const body = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
         setValidated(body);
-      } catch (e: any) {
-        setError(e?.message || "Failed to validate cart");
+      } catch (e: unknown) {
+        if (e instanceof Error) {
+          setError(e.message);
+        } else {
+          setError("An unknown error occurred");
+        }
       } finally {
         setLoading(false);
       }
@@ -93,8 +119,12 @@ export default function CheckoutReviewPage() {
       } catch {}
       clear();
       router.push("/checkout/confirmation");
-    } catch (e: any) {
-      setError(e?.message || "Failed to place order");
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setPlacing(false);
     }
@@ -114,7 +144,7 @@ export default function CheckoutReviewPage() {
           <div className="text-lg font-semibold mb-2">Order created</div>
           <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(result, null, 2)}</pre>
           <div className="mt-3">
-            <a href="/" className="btn-primary">Back to Home</a>
+            <Link href="/" className="btn-primary">Back to Home</Link>
           </div>
         </div>
       ) : (
@@ -123,8 +153,8 @@ export default function CheckoutReviewPage() {
             <div className="text-lg font-semibold mb-2">Items</div>
             {/* Group by shop */}
             {(() => {
-              const groups: Record<string, { shop?: any; rows: any[]; subtotal: number }> = {};
-              (validated?.items || []).forEach((it) => {
+              const groups: Record<string, Group> = {};
+              (validated?.items || []).forEach((it: ValidatedItem) => {
                 const key = it.shopId || 'unknown';
                 if (!groups[key]) groups[key] = { shop: it.shop, rows: [], subtotal: 0 };
                 groups[key].rows.push(it);

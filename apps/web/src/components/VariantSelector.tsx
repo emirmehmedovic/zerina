@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useCart } from "./CartProvider";
 
-export type Variant = { id: string; attributes: any; priceCents: number; stock: number; sku?: string };
+export type Variant = { id: string; attributes: Record<string, string | number>; priceCents: number; stock: number; sku?: string };
 
 export default function VariantSelector({
   variants,

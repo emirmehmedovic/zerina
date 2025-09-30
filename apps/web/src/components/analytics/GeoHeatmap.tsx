@@ -28,6 +28,7 @@ export default function GeoHeatmap({ data }: GeoHeatmapProps) {
 
     svg.selectAll('*').remove();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     d3.json<any>('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(world => {
       if (!world) return;
       const countries = topojson.feature(world, world.objects.countries) as unknown as FeatureCollection;
@@ -37,9 +38,12 @@ export default function GeoHeatmap({ data }: GeoHeatmapProps) {
       svg.selectAll('path')
         .data(countries.features)
         .enter().append('path')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .attr('d', path as any)
+        // TODO: Revisit and add proper typing for D3 and TopoJSON
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .attr('fill', (d: any) => {
-          const countryData = data.find(c => c.country === d.properties.name);
+          const countryData = data.find(c => c.country === d.properties?.name);
           return countryData ? colorScale(countryData.orders) : '#334155';
         })
         .attr('stroke', '#1e293b');

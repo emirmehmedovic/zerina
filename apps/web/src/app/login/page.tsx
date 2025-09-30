@@ -32,9 +32,14 @@ export default function LoginPage() {
       push({ type: "success", title: "Signed in", message: "Welcome back!" });
       router.push("/");
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || "Login failed");
-      push({ type: "error", title: "Login failed", message: err.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+        push({ type: "error", title: "Login failed", message: err.message });
+      } else {
+        setError("Login failed");
+        push({ type: "error", title: "Login failed", message: "Unknown error" });
+      }
     } finally {
       setLoading(false);
     }
@@ -91,7 +96,7 @@ export default function LoginPage() {
           </button>
 
           <p className="mt-4 text-sm text-center text-zinc-400">
-            Don't have an account? <a className="font-semibold text-blue-400 hover:text-blue-300" href="/register">Register</a>
+            Don&apos;t have an account? <a className="font-semibold text-blue-400 hover:text-blue-300" href="/register">Register</a>
           </p>
         </form>
       </div>

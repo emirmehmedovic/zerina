@@ -3,6 +3,8 @@
 import EnhancedGlass from "./ui/EnhancedGlass";
 import HeroLiquidGlass from "./ui/HeroLiquidGlass";
 import { Package, Target, Users, Bell, PieChart } from "lucide-react";
+import Link from 'next/link';
+import Image from 'next/image';
 
 interface Category {
   id: string;
@@ -24,9 +26,11 @@ export default function HeroSection({ categories }: HeroSectionProps) {
           <div className="relative w-full h-full overflow-hidden rounded-[24px]">
             {/* Background image */}
             <div className="absolute inset-0 z-0">
-              <img 
+              <Image 
                 src="/pexels-minan1398-713661.jpg" 
                 alt="Decorative lanterns" 
+                fill
+                priority
                 className="w-full h-full object-cover"
               />
               {/* Dark overlay for better text readability */}
@@ -59,12 +63,12 @@ export default function HeroSection({ categories }: HeroSectionProps) {
                         minWidth: '200px',
                       }}
                     >
-                      <a href="/products" className="text-white/90 font-medium text-base md:text-lg flex items-center justify-center whitespace-nowrap">
+                      <Link href="/products" className="text-white/90 font-medium text-base md:text-lg flex items-center justify-center whitespace-nowrap">
                         <span>Browse products</span>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
-                      </a>
+                      </Link>
                     </EnhancedGlass>
                   </div>
                 </div>
@@ -145,12 +149,12 @@ export default function HeroSection({ categories }: HeroSectionProps) {
                           minWidth: '120px',
                         }}
                       >
-                        <a href="/dashboard/shop" className="text-white/90 font-medium text-xs sm:text-sm flex items-center justify-center whitespace-nowrap">
+                        <Link href="/dashboard/shop" className="text-white/90 font-medium text-xs sm:text-sm flex items-center justify-center whitespace-nowrap">
                           <span>Get Started</span>
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7-7 7" />
                           </svg>
-                        </a>
+                        </Link>
                       </EnhancedGlass>
                     </div>
                   </div>
@@ -181,12 +185,12 @@ export default function HeroSection({ categories }: HeroSectionProps) {
       <div className="mt-10 flex flex-wrap gap-2.5 justify-center">
         {categories.slice(0, 8).map((category) => (
           <HeroLiquidGlass key={category.id} padding="8px 14px" cornerRadius={999} className="text-sm">
-            <a
+            <Link
               href={`/categories/${encodeURIComponent(category.name.toLowerCase().replace(/\s+/g, '-'))}`}
               className="text-white/90 hover:text-white"
             >
               {category.name}
-            </a>
+            </Link>
           </HeroLiquidGlass>
         ))}
       </div>

@@ -28,14 +28,18 @@ export default function AdminCreateAdminPage() {
       setEmail("");
       setPassword("");
       setName("");
-    } catch (e: any) {
-      push({ type: "error", title: "Create failed", message: e?.message || "Unknown error" });
+    } catch (e: unknown) {
+       if (e instanceof Error) {
+        push({ type: "error", title: "Create failed", message: e.message });
+      } else {
+        push({ type: "error", title: "Create failed", message: "An unknown error occurred" });
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const FormInput = ({ label, id, ...props }: any) => (
+  const FormInput = ({ label, id, ...props }: { label: string; id: string; [key: string]: unknown }) => (
     <div>
       <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor={id}>{label}</label>
       <input id={id} {...props} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
@@ -53,9 +57,9 @@ export default function AdminCreateAdminPage() {
 
       <div className="max-w-2xl mx-auto">
         <form onSubmit={onSubmit} className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6 space-y-4">
-          <FormInput label="Full Name" id="name" value={name} onChange={(e:any) => setName(e.target.value)} placeholder="e.g., Ada Lovelace" required />
-          <FormInput label="Email Address" id="email" type="email" value={email} onChange={(e:any) => setEmail(e.target.value)} placeholder="admin@example.com" required />
-          <FormInput label="Password" id="password" type="password" value={password} onChange={(e:any) => setPassword(e.target.value)} placeholder="••••••••" required />
+          <FormInput label="Full Name" id="name" value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder="e.g., Ada Lovelace" required />
+          <FormInput label="Email Address" id="email" type="email" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} placeholder="admin@example.com" required />
+          <FormInput label="Password" id="password" type="password" value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} placeholder="••••••••" required />
           
           <div className="pt-2">
             <button type="submit" className="w-full px-4 py-2.5 rounded-lg border border-transparent bg-blue-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-blue-500 transition-colors" disabled={loading}>

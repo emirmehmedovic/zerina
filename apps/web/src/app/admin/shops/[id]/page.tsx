@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Image from 'next/image';
 import { API_URL } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 
@@ -45,8 +46,12 @@ export default function AdminShopDetailPage() {
       }
       const data = (await res.json()) as Shop;
       setShop(data);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load shop");
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setLoading(false);
     }
@@ -71,8 +76,12 @@ export default function AdminShopDetailPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setShop({ ...shop, status });
       push({ type: "success", title: "Updated", message: `Shop → ${status}` });
-    } catch (e: any) {
-      push({ type: "error", title: "Update failed", message: e?.message || "Unknown error" });
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        push({ type: "error", title: "Update failed", message: e.message });
+      } else {
+        push({ type: "error", title: "Update failed", message: "An unknown error occurred" });
+      }
     } finally {
       setUpdating(false);
     }
@@ -127,7 +136,7 @@ export default function AdminShopDetailPage() {
               <tr key={p.id} className="border-t border-light-glass-border">
                 <td className="py-2 pr-2">
                   {p.images && p.images.length > 0 ? (
-                    <img src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} className="h-12 w-12 object-cover rounded" />
+                    <Image src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} width={48} height={48} className="h-12 w-12 object-cover rounded" />
                   ) : (
                     <div className="h-12 w-12 rounded bg-black/10 dark:bg-white/10" />
                   )}

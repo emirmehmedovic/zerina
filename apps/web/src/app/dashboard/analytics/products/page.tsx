@@ -43,7 +43,7 @@ export default function ProductsAnalyticsPage() {
       
       // Then get analytics for each product
       const productsWithAnalytics = await Promise.all(
-        productsData.items.map(async (product: any) => {
+        productsData.items.map(async (product: { id: string }) => {
           try {
             const analyticsRes = await fetch(`${API_URL}/api/v1/vendor/analytics/product/${product.id}?days=${days}`, { credentials: 'include' });
             if (!analyticsRes.ok) return { ...product, analytics: { totalQty: 0, totalRevenueCents: 0, avgOrderValueCents: 0, daysWithSales: 0 } };
@@ -66,15 +66,19 @@ export default function ProductsAnalyticsPage() {
       );
       
       setProducts(productsWithAnalytics);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load product analytics');
-    } finally {
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError('Failed to load product analytics');
+      }
+          } finally {
       setLoading(false);
     }
   };
 
   // Calculate growth rate from seasonal data
-  const calculateGrowthRate = (seasonal: any[]) => {
+  const calculateGrowthRate = (seasonal: { month: string; totalRevenueCents: number }[]) => {
     if (seasonal.length < 2) return 0;
     
     // Sort by month
@@ -388,7 +392,7 @@ export default function ProductsAnalyticsPage() {
       <GlassCard variant="subtle">
         <div className="text-sm font-medium mb-2">Product Analytics Insights</div>
         <ul className="text-sm space-y-1 list-disc pl-5">
-          <li>View detailed analytics for each product by clicking on "Details".</li>
+          <li>View detailed analytics for each product by clicking on &quot;Details&quot;.</li>
           <li>Products are sorted by {sortBy === 'title' ? 'name' : sortBy} ({sortDir === 'asc' ? 'ascending' : 'descending'}).</li>
           <li>Growth rate shows the percentage change in revenue over the selected time period.</li>
           <li>Export the data to CSV for further analysis in spreadsheet software.</li>

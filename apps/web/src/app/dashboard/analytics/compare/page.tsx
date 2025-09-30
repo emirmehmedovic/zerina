@@ -71,9 +71,13 @@ export default function ProductComparisonPage() {
         const res = await fetch(`${API_URL}/api/v1/vendor/products?take=100` , { credentials: 'include' });
         if (!res.ok) throw new Error(`Failed to load products (${res.status})` );
         const data = await res.json();
-        setAllProducts(data.items.map((p: any) => ({ id: p.id, title: p.title })));
-      } catch (e: any) {
-        console.error("Failed to load product list", e);
+        setAllProducts(data.items.map((p: { id: string; title: string }) => ({ id: p.id, title: p.title })));
+      } catch (e: unknown) {
+        if (e instanceof Error) {
+          console.error("Failed to load product list", e.message);
+        } else {
+          console.error("Failed to load product list", "An unknown error occurred");
+        }
       }
     };
     
@@ -121,8 +125,12 @@ export default function ProductComparisonPage() {
         });
         
         setProductsData(dataMap);
-      } catch (e: any) {
-        setError(e?.message || 'Failed to load product analytics');
+      } catch (e: unknown) {
+        if (e instanceof Error) {
+          setError(e.message);
+        } else {
+          setError('An unknown error occurred');
+        }
       } finally {
         setLoading(false);
       }

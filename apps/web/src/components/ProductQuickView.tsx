@@ -18,7 +18,7 @@ type Product = {
   currency: string;
   stock: number;
   images?: { storageKey: string; altText?: string }[];
-  variants?: { id: string; attributes: any; priceCents: number; stock: number; sku?: string }[];
+  variants?: { id: string; attributes: Record<string, string | number>; priceCents: number; stock: number; sku?: string }[];
 };
 
 interface ProductQuickViewProps {

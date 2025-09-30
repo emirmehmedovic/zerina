@@ -24,8 +24,12 @@ export default function ForgotPasswordPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       push({ type: "success", title: "Email sent", message: "If an account exists, you'll receive a reset link." });
       if (body?.resetUrl) setDevResetUrl(body.resetUrl);
-    } catch (err: any) {
-      push({ type: "error", title: "Request failed", message: err.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        push({ type: "error", title: "Request failed", message: err.message });
+      } else {
+        push({ type: "error", title: "Request failed", message: "Unknown error" });
+      }
     } finally {
       setLoading(false);
     }

@@ -17,7 +17,7 @@ type Product = {
   stock: number;
   images?: { storageKey: string; altText?: string }[];
   categories?: { category: { id: string; name: string } }[];
-  variants?: { id: string; attributes: any; priceCents: number; stock: number; sku?: string }[];
+  variants?: { id: string; attributes: Record<string, string | number>; priceCents: number; stock: number; sku?: string }[];
 };
 
 export default function ProductDetailPage() {

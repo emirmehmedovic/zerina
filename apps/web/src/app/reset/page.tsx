@@ -34,8 +34,12 @@ export default function ResetPasswordPage() {
       push({ type: "success", title: "Password changed", message: "You are now signed in." });
       router.push("/");
       router.refresh();
-    } catch (err: any) {
-      push({ type: "error", title: "Reset failed", message: err.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        push({ type: "error", title: "Reset failed", message: err.message });
+      } else {
+        push({ type: "error", title: "Reset failed", message: "Unknown error" });
+      }
     } finally {
       setLoading(false);
     }

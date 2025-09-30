@@ -42,8 +42,12 @@ export default function AdminShopsPage() {
       }
       const data = await res.json();
       setItems(data.items || []);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load shops");
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setLoading(false);
     }
@@ -71,8 +75,12 @@ export default function AdminShopsPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setItems((prev) => prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s)));
       push({ type: "success", title: "Updated", message: `Shop → ${newStatus}` });
-    } catch (e: any) {
-      push({ type: "error", title: "Update failed", message: e?.message || "Unknown error" });
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        push({ type: "error", title: "Update failed", message: e.message });
+      } else {
+        push({ type: "error", title: "Update failed", message: "An unknown error occurred" });
+      }
     }
   };
 

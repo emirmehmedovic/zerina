@@ -59,8 +59,12 @@ export default function DashboardShopPage() {
       }
       const data = (await res.json()) as Shop;
       setShop(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to create shop");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to create shop");
+      }
     } finally {
       setSubmitting(false);
     }

@@ -1,10 +1,12 @@
-import { Suspense } from 'react';
-import CartPageClient from './CartPageClient';
+"use client";
 
-export default function CartPage() {
+import { Suspense } from 'react';
+import SearchBar from './SearchBar';
+
+export default function SuspenseWrapper() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <CartPageClient />
+      <SearchBar />
     </Suspense>
   );
 }

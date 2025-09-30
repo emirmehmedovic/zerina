@@ -8,7 +8,7 @@ import GlassCard from "@/components/ui/GlassCard";
 import StatTile from "@/components/ui/StatTile";
 
 export default function VendorOverviewPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<{ shop: { currency: string; slug: string; }; totalRevenueCents: number; ordersTotal: number; publishedCount: number; }>({ shop: { currency: '', slug: '' }, totalRevenueCents: 0, ordersTotal: 0, publishedCount: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<{ days: number; series: { date: string; totalCents: number }[]; topProducts: { id: string; title: string; slug: string; qty: number; revenueCents: number }[] } | null>(null);
@@ -31,18 +31,18 @@ export default function VendorOverviewPage() {
           fetch(`${API_URL}/api/v1/vendor/analytics/status-counts`, { credentials: 'include' }),
           fetch(`${API_URL}/api/v1/vendor/inventory/low-stock?threshold=5&take=10`, { credentials: 'include' }),
         ]);
-        if (ares.ok) setAnalytics(await ares.json());
-        if (cres.ok) { const c = await cres.json(); setStatusCounts(c.counts || {}); }
-        if (lres.ok) { const l = await lres.json(); setLowStock(l.items || []); }
-      } catch (e: any) {
-        setError(e?.message || "Failed to load overview");
+      } catch (e: unknown) {
+        if (e instanceof Error) {
+          setError(e.message);
+        } else {
+          setError("Failed to load overview");
+        }
       } finally {
         setLoading(false);
       }
     })();
   }, []);
-
-  const d = data || {};
+  const d = data;
   const series = analytics?.series || [];
   const maxVal = useMemo(() => Math.max(1, ...series.map((s) => s.totalCents)), [series]);
   const sparkPath = useMemo(() => {

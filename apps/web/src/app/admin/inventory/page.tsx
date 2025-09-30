@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { API_URL } from "@/lib/api";
 import { Search, Edit, Eye, Trash2 } from 'lucide-react';
+import Image from 'next/image';
 
 type Row = {
   id: string;
@@ -55,8 +56,12 @@ export default function AdminInventoryPage() {
       }
       const data = await res.json();
       setItems(data.items || []);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load inventory");
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setLoading(false);
     }
@@ -64,15 +69,8 @@ export default function AdminInventoryPage() {
 
   const filtered = useMemo(() => items, [items]);
 
-  const allSelected = filtered.length > 0 && filtered.every((r) => selected[r.id]);
   const anySelected = filtered.some((r) => selected[r.id]);
   const selectedIds = filtered.filter((r) => selected[r.id]).map((r) => r.id);
-
-  const toggleAll = (checked: boolean) => {
-    const next: Record<string, boolean> = {};
-    if (checked) filtered.forEach((r) => (next[r.id] = true));
-    setSelected(next);
-  };
 
   const bulkSetStatus = async (status: 'PUBLISHED' | 'DRAFT') => {
     if (!anySelected) return;
@@ -144,26 +142,6 @@ export default function AdminInventoryPage() {
   }, [q, status, shopId, lowStock, lowStockThreshold]);
 
 
-  const onToggleStatus = async (row: Row) => {
-    const next = row.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
-    setTogglingId(row.id);
-    try {
-      const res = await fetch(`${API_URL}/api/v1/products/${row.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ status: next }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
-      setItems((prev) => prev.map((p) => (p.id === row.id ? { ...p, status: next } : p)));
-    } catch {
-      // ignore; lightweight control
-    } finally {
-      setTogglingId(null);
-    }
-  };
-
   return (
     <main>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
@@ -218,7 +196,7 @@ export default function AdminInventoryPage() {
               </div>
               <div className="col-span-1">
                 {p.images && p.images.length > 0 ? (
-                  <img src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} className="h-14 w-14 object-cover rounded-lg" />
+                  <Image src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} width={56} height={56} className="h-14 w-14 object-cover rounded-lg" />
                 ) : (
                   <div className="h-14 w-14 rounded-lg bg-black/20" />
                 )}

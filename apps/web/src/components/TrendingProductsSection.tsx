@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { TrendingUp, ArrowRight } from "lucide-react";
 import ProductCard from "./ProductCard";
+import Link from 'next/link';
 
 type Product = {
   id: string;
@@ -33,17 +34,17 @@ export default function TrendingProductsSection({ products }: TrendingProductsSe
                 Trending Now
               </h2>
               <p className="text-zinc-600 dark:text-zinc-400">
-                What's hot this week
+                What&apos;s hot this week
               </p>
             </div>
           </div>
-          <a 
+          <Link 
             href="/products" 
             className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 dark:bg-black/10 dark:hover:bg-black/20 backdrop-blur-sm border border-white/20 transition-all duration-300 text-zinc-900 dark:text-zinc-100 font-medium group hover:scale-105"
           >
             View All
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

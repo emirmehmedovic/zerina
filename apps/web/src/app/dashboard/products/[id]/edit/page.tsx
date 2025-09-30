@@ -23,7 +23,7 @@ type Product = {
 
 type Variant = {
   id: string;
-  attributes: any;
+  attributes: Record<string, string | number>;
   priceCents: number;
   stock: number;
   sku?: string;
@@ -77,9 +77,13 @@ export default function EditProductPage() {
         } else {
           setError(`Failed to load product (${res.status})`);
         }
-      } catch (e: any) {
-        setError(e?.message || "Failed to load product");
-      } finally {
+      } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("Failed to load product");
+      }
+              } finally {
         setLoading(false);
       }
     };
@@ -142,9 +146,14 @@ export default function EditProductPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       push({ type: "success", title: "Saved", message: "Product updated" });
       router.push("/dashboard/products");
-    } catch (err: any) {
-      setError(err?.message || "Failed to save");
-      push({ type: "error", title: "Save failed", message: err?.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+        push({ type: "error", title: "Save failed", message: err.message });
+      } else {
+        setError("Failed to save");
+        push({ type: "error", title: "Save failed", message: "Unknown error" });
+      }
     } finally {
       setSaving(false);
     }
@@ -173,8 +182,12 @@ export default function EditProductPage() {
       if (!add.ok) throw new Error(addBody?.error || `Attach failed (${add.status})`);
       setImages((prev) => [...prev, { id: addBody.id, storageKey: addBody.storageKey, position: addBody.position }].sort((a, b) => a.position - b.position));
       push({ type: "success", title: "Uploaded", message: "Image uploaded" });
-    } catch (err: any) {
-      push({ type: "error", title: "Upload failed", message: err?.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        push({ type: "error", title: "Upload failed", message: err.message });
+      } else {
+        push({ type: "error", title: "Upload failed", message: "Unknown error" });
+      }
     } finally {
       setUploading(false);
     }
@@ -196,8 +209,12 @@ export default function EditProductPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setImages((prev) => prev.filter((i) => i.id !== imageId));
-    } catch (err: any) {
-      push({ type: "error", title: "Delete failed", message: err?.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        push({ type: "error", title: "Delete failed", message: err.message });
+      } else {
+        push({ type: "error", title: "Delete failed", message: "Unknown error" });
+      }
     }
   };
 
@@ -219,8 +236,12 @@ export default function EditProductPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setImages(newOrder.map((i, idx) => ({ ...images.find((im) => im.id === i.id)!, position: idx })));
-    } catch (err: any) {
-      push({ type: "error", title: "Reorder failed", message: err?.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        push({ type: "error", title: "Reorder failed", message: err.message });
+      } else {
+        push({ type: "error", title: "Reorder failed", message: "Unknown error" });
+      }
     }
   };
 
@@ -253,8 +274,12 @@ export default function EditProductPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       const sorted = images.slice().sort((a, b) => (a.id === imageId ? -1 : b.id === imageId ? 1 : a.position - b.position));
       setImages(sorted.map((im, idx) => ({ ...im, position: idx })));
-    } catch (err: any) {
-      push({ type: "error", title: "Set cover failed", message: err?.message || "Unknown error" });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        push({ type: "error", title: "Set cover failed", message: err.message });
+      } else {
+        push({ type: "error", title: "Set cover failed", message: "Unknown error" });
+      }
     }
   };
 
@@ -278,7 +303,7 @@ export default function EditProductPage() {
     e.preventDefault();
     setCreatingVar(true);
     try {
-      let attrs: any = {};
+      let attrs: Record<string, string | number> = {};
       try {
         attrs = varAttrsText ? JSON.parse(varAttrsText) : {};
       } catch (err) {
@@ -302,8 +327,12 @@ export default function EditProductPage() {
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setVariants((prev) => [...prev, body]);
       setVarAttrsText('{}'); setVarPriceCents(0); setVarStock(0); setVarSku('');
-    } catch (err: any) {
-      alert(err?.message || 'Failed to create variant');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert('Failed to create variant');
+      }
     } finally {
       setCreatingVar(false);
     }
@@ -326,8 +355,12 @@ export default function EditProductPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setVariants((prev) => prev.map((it) => it.id === v.id ? { ...it, ...patch } : it));
-    } catch (err: any) {
-      alert(err?.message || 'Failed to update variant');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert('Failed to update variant');
+      }
     }
   };
 
@@ -347,8 +380,12 @@ export default function EditProductPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setVariants((prev) => prev.filter((v) => v.id !== id));
-    } catch (err: any) {
-      alert(err?.message || 'Failed to delete variant');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert('Failed to delete variant');
+      }
     }
   };
 

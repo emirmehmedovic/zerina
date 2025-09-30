@@ -50,8 +50,12 @@ export default function ProjectionsPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
       setData(body);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load projections');
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError('Failed to load projections');
+      }
     } finally {
       setLoading(false);
     }
