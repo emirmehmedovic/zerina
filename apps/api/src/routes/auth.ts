@@ -36,6 +36,13 @@ function signSession(user: { id: string; role: 'BUYER' | 'VENDOR' | 'ADMIN' }) {
   return jwt.sign(payload, ENV.sessionSecret, { expiresIn: '7d' });
 }
 
+const cookieOptions: import('express').CookieOptions = {
+  httpOnly: true,
+  secure: ENV.cookieSecure,
+  sameSite: ENV.nodeEnv === 'production' ? 'none' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
@@ -95,12 +102,7 @@ router.post('/register', async (req, res) => {
   const user = await prisma.user.create({ data: { email, passwordHash, name, role: 'BUYER' } });
 
   const token = signSession({ id: user.id, role: user.role });
-  res.cookie(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: ENV.cookieSecure,
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  res.cookie(COOKIE_NAME, token, cookieOptions);
   return res.status(201).json({ id: user.id, email: user.email, role: user.role, name: user.name });
 });
 
@@ -126,18 +128,13 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 
   const token = signSession({ id: user.id, role: user.role });
-  res.cookie(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: ENV.cookieSecure,
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  res.cookie(COOKIE_NAME, token, cookieOptions);
   clearFailures(email);
   return res.json({ id: user.id, email: user.email, role: user.role, name: user.name });
 });
 
 router.post('/logout', (_req, res) => {
-  res.clearCookie(COOKIE_NAME, { httpOnly: true, secure: ENV.cookieSecure, sameSite: 'lax' });
+  res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: undefined });
   return res.json({ ok: true });
 });
 
@@ -185,12 +182,7 @@ router.post('/reset', async (req, res) => {
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
     // Optionally sign-in the user after reset
     const session = signSession({ id: user.id, role: user.role as any });
-    res.cookie(COOKIE_NAME, session, {
-      httpOnly: true,
-      secure: ENV.cookieSecure,
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie(COOKIE_NAME, session, cookieOptions);
     return res.json({ ok: true });
   } catch (e) {
     return res.status(400).json({ error: 'invalid_token', code: 'INVALID_TOKEN' });
