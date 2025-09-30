@@ -474,14 +474,14 @@ router.get('/analytics/seasonal', requireAuth, async (req, res) => {
     // Monthly aggregation
     const monthEntry = monthlyData.get(month) || { orders: 0, items: 0, revenueCents: 0 };
     monthEntry.orders += 1;
-    monthEntry.items += order.items.reduce((sum, item) => sum + item.quantity, 0);
+    monthEntry.items += order.items.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0);
     monthEntry.revenueCents += order.totalCents;
     monthlyData.set(month, monthEntry);
     
     // Weekday aggregation
     const weekdayEntry = weekdayData.get(weekday)!;
     weekdayEntry.orders += 1;
-    weekdayEntry.items += order.items.reduce((sum, item) => sum + item.quantity, 0);
+    weekdayEntry.items += order.items.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0);
     weekdayEntry.revenueCents += order.totalCents;
     weekdayData.set(weekday, weekdayEntry);
   }
