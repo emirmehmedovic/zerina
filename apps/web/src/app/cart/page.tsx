@@ -7,12 +7,30 @@ export default function CartPage() {
   const { items, setQty, remove, clear, totalCents } = useCart();
 
   return (
-    <main>
-      <h1 className="text-3xl font-bold mb-4">Your cart</h1>
-      {items.length === 0 ? (
-        <div className="card-base card-glass p-4">Your cart is empty.</div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <main className="min-h-screen p-6 sm:p-10 relative overflow-hidden">
+      {/* Subtle decorative elements */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-slate-200/10 to-zinc-200/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-br from-zinc-200/10 to-slate-200/10 rounded-full blur-3xl pointer-events-none" />
+      
+      <div className="relative w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        {/* Enhanced header */}
+        <div className="mb-10 relative">
+          <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-zinc-400 via-zinc-300 to-transparent rounded-full" />
+          <h1 className="text-4xl sm:text-5xl font-bold mb-3 text-zinc-900 dark:text-zinc-100 tracking-tight">
+            Shopping Cart
+          </h1>
+          <p className="text-zinc-600 dark:text-zinc-400 text-lg flex items-center gap-2">
+            <span className="inline-block w-2 h-2 bg-zinc-400 rounded-full animate-pulse" />
+            {items.length} {items.length === 1 ? 'item' : 'items'} in your cart
+          </p>
+        </div>
+        
+        {items.length === 0 ? (
+          <div className="card-base card-glass p-8 text-center">
+            <p className="text-zinc-600 dark:text-zinc-400">Your cart is empty.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 card-base card-glass p-4">
             {/* Desktop view */}
             <div className="hidden md:block">
@@ -154,7 +172,8 @@ export default function CartPage() {
             <a href="/checkout" className="btn-primary w-full text-center block">Checkout</a>
           </div>
         </div>
-      )}
+        )}
+      </div>
     </main>
   );
 }

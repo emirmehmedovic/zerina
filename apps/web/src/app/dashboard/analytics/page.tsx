@@ -2,10 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Heading from "@/components/ui/Heading";
+import { DollarSign, ShoppingCart, Package, Users } from 'lucide-react';
 import GlassCard from "@/components/ui/GlassCard";
 import StatTile from "@/components/ui/StatTile";
 import { API_URL } from "@/lib/api";
+import Tabs from '@/components/analytics/Tabs';
+import KeyInsights from '@/components/analytics/KeyInsights';
+import ProductAnalytics from '@/components/analytics/ProductAnalytics';
+import CustomerAnalytics from '@/components/analytics/CustomerAnalytics';
+import ProductSelectorForComparison from '@/components/analytics/ProductSelectorForComparison';
 
 export default function VendorAnalyticsPage() {
   const [days, setDays] = useState(30);
@@ -70,146 +75,105 @@ export default function VendorAnalyticsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const tabs = [
+    {
+      id: 'sales',
+      label: 'Sales',
+      content: (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-6">
+            <StatTile label="Revenue" value={`${((kpis?.revenueCents||0)/100).toFixed(2)}`} variant="success" icon={<DollarSign />} />
+            <StatTile label="Orders" value={kpis?.orders ?? 0} variant="primary" icon={<ShoppingCart />} />
+            <StatTile label="Items Sold" value={kpis?.items ?? 0} variant="default" icon={<Package />} />
+            <StatTile label="Avg. Order Value" value={`${((kpis?.avgOrderValueCents||0)/100).toFixed(2)}`} variant="default" icon={<Users />} />
+          </div>
+          <div className="lg:col-span-2 rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-5">
+            <h3 className="text-sm uppercase tracking-wider text-zinc-400 mb-4">Revenue Over Time</h3>
+            {series.length === 0 ? (
+              <div className="flex items-center justify-center h-64 text-zinc-500">No sales data available.</div>
+            ) : (
+              <div className="relative h-64">
+                <svg width="100%" height="100%" viewBox={`0 0 560 120`} preserveAspectRatio="none">
+                   <defs>
+                    <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path d={sparkPath.replace(/M(.*?),(.*?) L/, 'M$1,120 L$1,$2 L')} stroke="#10b981" fill="url(#salesGradient)" strokeWidth="2" />
+                  <path d={sparkPath} stroke="#10b981" fill="none" strokeWidth="2" />
+                </svg>
+              </div>
+            )}
+          </div>
+          <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-5">
+            <h3 className="text-sm uppercase tracking-wider text-zinc-400 mb-4">Top Products</h3>
+            {topProducts.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-zinc-500">No data.</div>
+            ) : (
+              <ul className="space-y-3">
+                {topProducts.map((t) => (
+                  <li key={t.id} className="flex items-center justify-between text-sm">
+                    <Link className="text-zinc-200 hover:text-white transition-colors truncate pr-4" href={`/dashboard/analytics/products/${t.id}`}>{t.title}</Link>
+                    <div className="text-zinc-400 font-medium whitespace-nowrap">{t.qty} sold</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )
+    },
+    { id: 'products', label: 'Products', content: <ProductAnalytics /> },
+    { id: 'customers', label: 'Customers', content: <CustomerAnalytics /> },
+    { id: 'compare', label: 'Compare', content: <ProductSelectorForComparison /> },
+  ];
+
+  const insights = [
+    { text: `You had ${kpis?.orders || 0} orders in the last ${days} days.` },
+    { text: `Your top product, '${topProducts[0]?.title || 'N/A'}', generated ${((topProducts[0]?.revenueCents || 0) / 100).toFixed(2)} in revenue.` },
+    { text: `Your average order value was ${((kpis?.avgOrderValueCents || 0) / 100).toFixed(2)}.` },
+  ];
+
   return (
     <main>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <Heading>Analytics</Heading>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm text-light-muted dark:text-dark-muted">Range</label>
+        <div>
+          <h1 className="text-2xl font-bold text-white">Analytics</h1>
+          <p className="text-zinc-400">Your business at a glance.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
           <select 
             value={days} 
             onChange={(e)=> setDays(Number(e.target.value))} 
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/50 backdrop-blur-sm dark:bg-zinc-800/50 text-sm min-w-[120px]"
+            className="border border-white/10 rounded-lg px-3 py-2 bg-black/20 backdrop-blur-md text-zinc-200 text-sm min-w-[120px] focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            <option value={7}>7 days</option>
-            <option value={30}>30 days</option>
-            <option value={90}>90 days</option>
-            <option value={180}>180 days</option>
+            <option value={7}>Last 7 Days</option>
+            <option value={30}>Last 30 Days</option>
+            <option value={90}>Last 90 Days</option>
+            <option value={180}>Last 180 Days</option>
           </select>
           <button 
             onClick={exportCSV} 
             disabled={!series.length} 
-            className="px-3 py-2 rounded-md border border-light-glass-border bg-white/60 dark:bg-zinc-800/60 text-sm hover:bg-white/80 dark:hover:bg-zinc-800/80 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg border border-white/10 bg-black/20 backdrop-blur-md text-sm text-zinc-200 hover:bg-white/5 disabled:opacity-50 transition-colors"
           >
             Export CSV
           </button>
         </div>
       </div>
-      
-      <GlassCard className="mb-6" variant="subtle">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="text-sm font-medium">Detailed Analytics</div>
-          <div className="flex flex-wrap gap-2">
-            <Link 
-              href="/dashboard/analytics/products" 
-              className="px-3 py-2 rounded-md border border-light-glass-border bg-white/60 dark:bg-zinc-800/60 text-sm hover:bg-white/80 dark:hover:bg-zinc-800/80 transition-colors"
-            >
-              Product Analytics
-            </Link>
-            <Link 
-              href="/dashboard/analytics/seasonal" 
-              className="px-3 py-2 rounded-md border border-light-glass-border bg-white/60 dark:bg-zinc-800/60 text-sm hover:bg-white/80 dark:hover:bg-zinc-800/80 transition-colors"
-            >
-              Seasonal Analysis
-            </Link>
-            <Link 
-              href="/dashboard/analytics/projections" 
-              className="px-3 py-2 rounded-md border border-light-glass-border bg-white/60 dark:bg-zinc-800/60 text-sm hover:bg-white/80 dark:hover:bg-zinc-800/80 transition-colors"
-            >
-              Projections
-            </Link>
-          </div>
-        </div>
-      </GlassCard>
 
       {loading ? (
-        <GlassCard padded="lg" className="flex items-center justify-center h-40">
-          <div className="flex items-center gap-2">
-            <svg className="animate-spin h-5 w-5 text-light-muted dark:text-dark-muted" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span>Loading analytics...</span>
-          </div>
-        </GlassCard>
+        <div className="flex items-center justify-center h-64 text-zinc-500">Loading analytics...</div>
       ) : error ? (
-        <GlassCard padded="lg" className="text-sm text-red-600">{error}</GlassCard>
+        <div className="rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-4 text-sm">{error}</div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-3 lg:gap-4">
-            <StatTile label="Revenue" value={`${((kpis?.revenueCents||0)/100).toFixed(2)}`} />
-            <StatTile label="Orders" value={kpis?.orders ?? 0} />
-            <StatTile label="Items sold" value={kpis?.items ?? 0} />
-            <StatTile label="Avg. order" value={`${((kpis?.avgOrderValueCents||0)/100).toFixed(2)}`} />
-          </div>
-          
-          <GlassCard className="lg:col-span-2" variant="default">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium text-light-ink dark:text-white">Revenue over time</div>
-              <div className="text-xs text-light-muted dark:text-dark-muted">{days} days</div>
-            </div>
-            {series.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-sm text-light-muted dark:text-dark-muted">No data available.</div>
-            ) : (
-              <div className="mt-2">
-                <svg width="100%" height="130" viewBox="0 0 564 130" preserveAspectRatio="none">
-                  <path d={sparkPath} stroke="currentColor" className="text-emerald-500" fill="none" strokeWidth="2" />
-                </svg>
-              </div>
-            )}
-          </GlassCard>
-          
-          <GlassCard className="h-full flex flex-col" variant="default">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium text-light-ink dark:text-white">Top products</div>
-              <Link href="/dashboard/analytics/products" className="text-xs text-light-muted dark:text-dark-muted hover:underline">View all</Link>
-            </div>
-            {topProducts.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-sm text-light-muted dark:text-dark-muted">No data available.</div>
-            ) : (
-              <ul className="text-sm space-y-2 mt-1 flex-grow">
-                {topProducts.map((t) => (
-                  <li key={t.id} className="flex items-center justify-between py-1 border-b border-light-glass-border last:border-0">
-                    <Link className="hover:underline truncate max-w-[70%]" href={`/dashboard/analytics/products/${t.id}`}>{t.title}</Link>
-                    <div className="text-xs text-light-muted dark:text-dark-muted whitespace-nowrap">{t.qty} · {((t.revenueCents/100)).toFixed(2)}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-4 pt-3 border-t border-light-glass-border">
-              <Link 
-                href="/dashboard/analytics/products/compare" 
-                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="17 18 23 12 17 6"></polyline>
-                  <polyline points="7 6 1 12 7 18"></polyline>
-                </svg>
-                Compare Products
-              </Link>
-            </div>
-          </GlassCard>
-          
-          <GlassCard className="h-full flex flex-col" variant="default">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium text-light-ink dark:text-white">Top customers</div>
-              <div className="text-xs text-light-muted dark:text-dark-muted">{topCustomers.length} total</div>
-            </div>
-            {topCustomers.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-sm text-light-muted dark:text-dark-muted">No data available.</div>
-            ) : (
-              <ul className="text-sm space-y-2 mt-1 flex-grow">
-                {topCustomers.map((c) => (
-                  <li key={c.buyerId} className="flex items-center justify-between py-1 border-b border-light-glass-border last:border-0">
-                    <div className="font-mono text-xs bg-light-glass-border dark:bg-zinc-800/50 px-2 py-1 rounded">{c.buyerId.slice(0,8)}</div>
-                    <div className="text-xs text-light-muted dark:text-dark-muted">{((c.revenueCents/100)).toFixed(2)}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </GlassCard>
+        <div>
+          <KeyInsights insights={insights} />
+          <Tabs tabs={tabs} />
         </div>
       )}
     </main>
   );
+
 }

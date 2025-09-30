@@ -11,16 +11,25 @@
   },
   "dependencies": {
     "@developer-hub/liquid-glass": "^1.2.3",
+    "@headlessui/react": "^2.2.9",
+    "class-variance-authority": "^0.7.1",
+    "d3": "^7.9.0",
     "next": "15.5.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "react-dropzone": "^14.3.8",
+    "recharts": "^3.2.1",
+    "topojson-client": "^3.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/d3": "^7.4.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/react-dropzone": "^4.2.2",
+    "@types/topojson-client": "^3.1.5",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
     "tailwindcss": "^4",

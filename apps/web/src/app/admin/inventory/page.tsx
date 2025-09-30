@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { API_URL } from "@/lib/api";
+import { Search, Edit, Eye, Trash2 } from 'lucide-react';
 
 type Row = {
   id: string;
@@ -165,120 +166,82 @@ export default function AdminInventoryPage() {
 
   return (
     <main>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-3xl font-bold">Inventory</h1>
-        <div className="flex items-center gap-2">
-          <input
-            placeholder="Search title..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-          />
-          <select
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="">All statuses</option>
-            <option value="DRAFT">DRAFT</option>
-            <option value="PUBLISHED">PUBLISHED</option>
-            <option value="ARCHIVED">ARCHIVED</option>
-            <option value="SUSPENDED">SUSPENDED</option>
-          </select>
-          <select
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-            value={shopId}
-            onChange={(e) => setShopId(e.target.value)}
-          >
-            <option value="">All shops</option>
-            {shops.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={lowStock} onChange={(e) => setLowStock(e.target.checked)} />
-            Low stock
-          </label>
-          {lowStock && (
-            <input
-              type="number"
-              min={1}
-              value={lowStockThreshold}
-              onChange={(e) => setLowStockThreshold(Number(e.target.value) || 1)}
-              className="w-20 border border-light-glass-border rounded-md px-2 py-1 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30 text-sm"
-              title="Low stock threshold"
-            />
-          )}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Inventory Control</h1>
+          <p className="text-zinc-400">Monitor and manage all product inventory.</p>
         </div>
       </div>
-      <div className="mb-3 flex items-center gap-2">
-        <button className="btn-secondary" disabled={!anySelected || !!bulkLoading} onClick={() => bulkSetStatus('PUBLISHED')}>
-          {bulkLoading === 'publish' ? 'Publishing…' : 'Publish selected'}
-        </button>
-        <button className="btn-secondary" disabled={!anySelected || !!bulkLoading} onClick={() => bulkSetStatus('DRAFT')}>
-          {bulkLoading === 'draft' ? 'Marking draft…' : 'Mark Draft'}
-        </button>
-        <button className="btn-danger" disabled={!anySelected || !!bulkLoading} onClick={bulkDelete}>
-          {bulkLoading === 'delete' ? 'Deleting…' : 'Delete selected'}
-        </button>
-        {anySelected && <span className="text-sm text-light-muted dark:text-dark-muted">{selectedIds.length} selected</span>}
+
+      <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="relative lg:col-span-2">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              placeholder="Search by product title..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="border border-white/10 rounded-lg px-3 py-2 bg-black/20 backdrop-blur-md text-zinc-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          >
+            <option value="">All Statuses</option>
+            <option value="DRAFT">Draft</option>
+            <option value="PUBLISHED">Published</option>
+            <option value="ARCHIVED">Archived</option>
+          </select>
+          <select
+            value={shopId}
+            onChange={(e) => setShopId(e.target.value)}
+            className="border border-white/10 rounded-lg px-3 py-2 bg-black/20 backdrop-blur-md text-zinc-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          >
+            <option value="">All Shops</option>
+            {shops.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
       </div>
+
       {loading ? (
-        <div className="card-base card-glass">Loading...</div>
+        <div className="text-center p-10 text-zinc-500">Loading inventory...</div>
       ) : error ? (
-        <div className="card-base card-glass">{error}</div>
+        <div className="rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-4 text-sm">{error}</div>
       ) : (
-        <div className="overflow-x-auto card-base card-glass">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left">
-                <th className="py-2 pr-2"><input type="checkbox" checked={allSelected} onChange={(e) => toggleAll(e.target.checked)} /></th>
-                <th className="py-2">Image</th>
-                <th className="py-2">Title</th>
-                <th className="py-2">Shop</th>
-                <th className="py-2">Price</th>
-                <th className="py-2">Stock</th>
-                <th className="py-2">Status</th>
-                <th className="py-2">Created</th>
-                <th className="py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => (
-                <tr key={p.id} className="border-t border-light-glass-border">
-                  <td className="py-2 pr-2"><input type="checkbox" checked={!!selected[p.id]} onChange={(e) => setSelected((s) => ({ ...s, [p.id]: e.target.checked }))} /></td>
-                  <td className="py-2 pr-2">
-                    {p.images && p.images.length > 0 ? (
-                      <img src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} className="h-12 w-12 object-cover rounded" />
-                    ) : (
-                      <div className="h-12 w-12 rounded bg-black/10 dark:bg-white/10" />
-                    )}
-                  </td>
-                  <td className="py-2 pr-2">{p.title}</td>
-                  <td className="py-2 pr-2"><a className="underline underline-offset-4" href={`/shops/${p.shop.slug}`}>{p.shop.name}</a></td>
-                  <td className="py-2 pr-2">{(p.priceCents/100).toFixed(2)} {p.currency}</td>
-                  <td className="py-2 pr-2">{p.stock}</td>
-                  <td className="py-2 pr-2">
-                    <button
-                      onClick={() => onToggleStatus(p)}
-                      disabled={togglingId === p.id}
-                      className={`text-xs px-2 py-1 rounded border ${p.status === "PUBLISHED" ? "border-emerald-400/50" : "border-amber-400/50"}`}
-                      title="Toggle Draft/Published"
-                    >
-                      {togglingId === p.id ? "…" : p.status}
-                    </button>
-                  </td>
-                  <td className="py-2 pr-2">{new Date(p.createdAt).toLocaleDateString()}</td>
-                  <td className="py-2 pr-2">
-                    <div className="flex items-center gap-2">
-                      <a className="underline underline-offset-4" href={`/dashboard/products/${p.id}/edit`}>Edit</a>
-                      <a className="underline underline-offset-4" href={`/products/${p.slug}`}>View</a>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          {filtered.map(p => (
+            <div key={p.id} className="group grid grid-cols-12 items-center gap-4 p-4 rounded-2xl bg-black/20 border border-white/10 hover:bg-black/30 transition-colors">
+              <div className="col-span-1">
+                <input type="checkbox" checked={!!selected[p.id]} onChange={(e) => setSelected((s) => ({ ...s, [p.id]: e.target.checked }))} className="form-checkbox h-4 w-4 bg-transparent border-zinc-600 text-blue-500 focus:ring-blue-500" />
+              </div>
+              <div className="col-span-1">
+                {p.images && p.images.length > 0 ? (
+                  <img src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} className="h-14 w-14 object-cover rounded-lg" />
+                ) : (
+                  <div className="h-14 w-14 rounded-lg bg-black/20" />
+                )}
+              </div>
+              <div className="col-span-4">
+                <a href={`/products/${p.slug}`} className="font-semibold text-white hover:text-blue-400 transition-colors">{p.title}</a>
+                <div className="text-xs text-zinc-500">from <a href={`/shops/${p.shop.slug}`} className="hover:text-zinc-300">{p.shop.name}</a></div>
+              </div>
+              <div className="col-span-2">
+                <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${p.status === 'PUBLISHED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'}`}>{p.status}</span>
+              </div>
+              <div className="col-span-2 text-zinc-300">
+                <span className={p.stock < lowStockThreshold ? 'text-amber-400 font-bold' : ''}>{p.stock}</span> in stock
+              </div>
+              <div className="col-span-1 font-semibold text-white">
+                ${(p.priceCents / 100).toFixed(2)}
+              </div>
+              <div className="col-span-1 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <a href={`/dashboard/products/${p.id}/edit`} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white"><Edit size={16} /></a>
+                <a href={`/products/${p.slug}`} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white"><Eye size={16} /></a>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </main>

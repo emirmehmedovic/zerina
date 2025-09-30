@@ -14,14 +14,19 @@ router.get('/overview', requireAuth, async (req, res) => {
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true, name: true, slug: true, status: true } });
   if (!shop) return res.json({ shop: null, productsTotal: 0, publishedCount: 0, draftCount: 0, lowStockCount: 0, ordersTotal: 0 });
 
-  const [productsTotal, publishedCount, draftCount, lowStockCount, ordersTotal] = await Promise.all([
+  const [productsTotal, publishedCount, draftCount, lowStockCount, ordersTotal, revenueData] = await Promise.all([
     prisma.product.count({ where: { shopId: shop.id } }),
     prisma.product.count({ where: { shopId: shop.id, status: 'PUBLISHED' } }),
     prisma.product.count({ where: { shopId: shop.id, status: 'DRAFT' } }),
     prisma.product.count({ where: { shopId: shop.id, stock: { lt: 5 } } }),
     prisma.order.count({ where: { shopId: shop.id } }),
+    prisma.order.aggregate({
+      _sum: { totalCents: true },
+      where: { shopId: shop.id, status: { in: ['PROCESSING', 'SHIPPED', 'DELIVERED'] } },
+    }),
   ]);
-  res.json({ shop, productsTotal, publishedCount, draftCount, lowStockCount, ordersTotal });
+  const totalRevenueCents = revenueData._sum.totalCents || 0;
+  res.json({ shop, productsTotal, publishedCount, draftCount, lowStockCount, ordersTotal, totalRevenueCents });
 });
 
 // Query schemas
@@ -63,6 +68,54 @@ router.get('/products', requireAuth, validateQuery(vendorProductsQuerySchema), a
     prisma.product.count({ where }),
   ]);
   res.json({ items, total });
+});
+
+// GET /api/v1/vendor/analytics/customer-insights — customer segmentation and geographic data
+router.get('/analytics/customer-insights', requireAuth, async (req, res) => {
+  const user = (req as any).user as { sub: string };
+  const days = Math.max(1, Math.min(365, Number((req.query as any).days) || 90));
+  const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
+  if (!shop) return res.json({ newVsReturning: { new: 0, returning: 0 }, geo: [] });
+
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const orders = await prisma.order.findMany({
+    where: { shopId: shop.id, createdAt: { gte: since } },
+    select: { buyerId: true, shippingAddress: true },
+  });
+
+  // New vs Returning
+  const customerOrderCounts = new Map<string, number>();
+  for (const order of orders) {
+    if (order.buyerId) {
+      customerOrderCounts.set(order.buyerId, (customerOrderCounts.get(order.buyerId) || 0) + 1);
+    }
+  }
+
+  let newCustomers = 0;
+  let returningCustomers = 0;
+  for (const count of customerOrderCounts.values()) {
+    if (count === 1) {
+      newCustomers++;
+    } else {
+      returningCustomers++;
+    }
+  }
+
+  // Geographic data
+  const geo = new Map<string, number>();
+  for (const order of orders) {
+    const country = order.shippingAddress?.country;
+    if (country) {
+      geo.set(country, (geo.get(country) || 0) + 1);
+    }
+  }
+
+  res.json({
+    newVsReturning: { new: newCustomers, returning: returningCustomers },
+    geo: Array.from(geo.entries()).map(([country, orders]) => ({ country, orders })),
+  });
 });
 
 export default router;

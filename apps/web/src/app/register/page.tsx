@@ -4,6 +4,7 @@ import { useState } from "react";
 import { API_URL } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import { useRouter } from "next/navigation";
+import GlobalHeroBackground from "@/components/ui/global-hero-background";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -41,56 +42,69 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-light-background dark:bg-dark-background">
-      <form onSubmit={onSubmit} className="w-full max-w-md card-base card-hover">
-        <h1 className="text-2xl font-bold mb-4">Registracija</h1>
-        {error && (
-          <div className="mb-3 text-sm text-red-600">
-            {error}
+    <main className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
+      <GlobalHeroBackground />
+      <div className="w-full max-w-md z-10">
+        <form onSubmit={onSubmit} className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-8 space-y-6">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-white">Create Your Account</h1>
+            <p className="text-zinc-400">Join our platform today.</p>
           </div>
-        )}
-        <div className="mb-4">
-          <label className="block text-sm mb-1" htmlFor="name">Ime</label>
-          <input
-            id="name"
-            type="text"
-            className="w-full border border-light-border dark:border-dark-border rounded-md px-3 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ime i prezime"
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm mb-1" htmlFor="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            required
-            className="w-full border border-light-border dark:border-dark-border rounded-md px-3 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-          />
-        </div>
-        <div className="mb-6">
-          <label className="block text-sm mb-1" htmlFor="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            required
-            className="w-full border border-light-border dark:border-dark-border rounded-md px-3 py-2 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-          />
-        </div>
-        <button className="btn-primary w-full" disabled={loading}>
-          {loading ? "Kreiranje..." : "Kreiraj račun"}
-        </button>
-        <p className="mt-4 text-sm text-light-muted dark:text-dark-muted">
-          Već imaš račun? <a className="text-light-accent" href="/login">Prijavi se</a>
-        </p>
-      </form>
+
+          {error && (
+            <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor="name">Full Name</label>
+              <input
+                id="name"
+                type="text"
+                className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Ada Lovelace"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor="email">Email Address</label>
+              <input
+                id="email"
+                type="email"
+                required
+                className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                required
+                className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
+          <button type="submit" className="w-full px-4 py-2.5 rounded-lg border border-transparent bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors" disabled={loading}>
+            {loading ? "Creating Account…" : "Create Account"}
+          </button>
+
+          <p className="mt-4 text-sm text-center text-zinc-400">
+            Already have an account? <a className="font-semibold text-blue-400 hover:text-blue-300" href="/login">Sign In</a>
+          </p>
+        </form>
+      </div>
     </main>
   );
 }

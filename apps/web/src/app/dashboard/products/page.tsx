@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { API_URL } from "@/lib/api";
 import { getCsrfToken } from "@/lib/csrf";
 import { useToast } from "@/components/ToastProvider";
+import { Plus, Search, Edit, Trash2, Archive, Eye } from 'lucide-react';
 
 type Product = {
   id: string;
@@ -267,188 +268,125 @@ export default function DashboardProductsPage() {
     }
   };
 
+  const StatusBadge = ({ status }: { status: Product['status'] }) => {
+    const statusStyles: Record<Product['status'], string> = {
+      PUBLISHED: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+      DRAFT: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+      ARCHIVED: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30',
+      SUSPENDED: 'bg-red-500/20 text-red-300 border-red-500/30',
+    };
+    return <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${statusStyles[status]}`}>{status}</span>;
+  };
+
   return (
     <main>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-3xl font-bold">My products</h1>
-        <div className="flex items-center gap-3">
-          <input
-            placeholder="Search..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-          />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Product Command Center</h1>
+          <p className="text-zinc-400">Manage your entire product catalog.</p>
+        </div>
+        <a href="/dashboard/products/new" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-transparent bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors">
+          <Plus size={18} />
+          Add Product
+        </a>
+      </div>
+
+      <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              placeholder="Search by name..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
           <select
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
             value={status}
-            disabled={archivedOnly}
             onChange={(e) => setStatus(e.target.value)}
+            className="border border-white/10 rounded-lg px-3 py-2 bg-black/20 backdrop-blur-md text-zinc-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            <option value="">All</option>
+            <option value="">All Statuses</option>
             <option value="PUBLISHED">Published</option>
             <option value="DRAFT">Draft</option>
             <option value="ARCHIVED">Archived</option>
-            <option value="SUSPENDED">Suspended</option>
           </select>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={archivedOnly} onChange={(e)=>{ setArchivedOnly(e.target.checked); if(e.target.checked) setStatus(''); }} /> Archived only
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={lowStock} onChange={(e) => setLowStock(e.target.checked)} /> Low stock
-          </label>
-          {lowStock && (
-            <input
-              type="number"
-              min={1}
-              value={lowStockThreshold}
-              onChange={(e) => setLowStockThreshold(Number(e.target.value) || 1)}
-              className="w-20 border border-light-glass-border rounded-md px-2 py-1 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30 text-sm"
-              title="Low stock threshold"
-            />
-          )}
-          <a className="btn-primary" href="/dashboard/products/new">New product</a>
-        </div>
-      </div>
-      <div className="mb-3 flex items-center gap-2">
-        <button className="btn-secondary" disabled={!anySelected || !!bulkLoading} onClick={() => bulkSetStatus('PUBLISHED')}>
-          {bulkLoading === 'publish' ? 'Publishing…' : 'Publish selected'}
-        </button>
-        <button className="btn-secondary" disabled={!anySelected || !!bulkLoading} onClick={() => bulkSetStatus('DRAFT')}>
-          {bulkLoading === 'draft' ? 'Marking draft…' : 'Mark Draft'}
-        </button>
-        <button className="btn-secondary" disabled={!anySelected || !!bulkLoading} onClick={() => bulkSetStatus('ARCHIVED')}>
-          {bulkLoading === 'delete' ? 'Archiving…' : 'Archive selected'}
-        </button>
-        <button className="btn-danger" disabled={!anySelected || !!bulkLoading} onClick={bulkDelete}>
-          {bulkLoading === 'delete' ? 'Deleting…' : 'Delete selected'}
-        </button>
-        <div className="flex-1" />
-        <button className="btn-secondary" onClick={exportCSV}>Export CSV</button>
-      </div>
-      {loading ? (
-        <div className="card-base card-glass">Loading...</div>
-      ) : items.length === 0 ? (
-        <div className="card-base card-glass">No products yet.</div>
-      ) : (
-        <>
-        <div className="overflow-x-auto card-base card-glass">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left">
-                <th className="py-2">
-                  <input type="checkbox" checked={allSelected} onChange={(e) => toggleAll(e.target.checked)} />
-                </th>
-                <th className="py-2">Image</th>
-                <th className="py-2 cursor-pointer" onClick={() => setSortKey("title")}>Title {sort.key === "title" ? (sort.dir === "asc" ? "↑" : "↓") : ""}</th>
-                <th className="py-2 cursor-pointer" onClick={() => setSortKey("price")}>Price {sort.key === "price" ? (sort.dir === "asc" ? "↑" : "↓") : ""}</th>
-                <th className="py-2 cursor-pointer" onClick={() => setSortKey("stock")}>Stock {sort.key === "stock" ? (sort.dir === "asc" ? "↑" : "↓") : ""}</th>
-                <th className="py-2 cursor-pointer" onClick={() => setSortKey("status")}>Status {sort.key === "status" ? (sort.dir === "asc" ? "↑" : "↓") : ""}</th>
-                <th className="py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((p) => (
-                <tr key={p.id} className="border-t border-light-glass-border">
-                  <td className="py-2 pr-2">
-                    <input type="checkbox" checked={!!selected[p.id]} onChange={(e) => setSelected((prev) => ({ ...prev, [p.id]: e.target.checked }))} />
-                  </td>
-                  <td className="py-2 pr-2">
-                    {p.images && p.images.length > 0 ? (
-                      <img src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} className="h-12 w-12 object-cover rounded" />
-                    ) : (
-                      <div className="h-12 w-12 rounded bg-black/10 dark:bg-white/10" />
-                    )}
-                  </td>
-                  <td className="py-2 pr-2">
-                    <div className="font-medium">{p.title}</div>
-                    <div className="text-xs text-light-muted dark:text-dark-muted">/{p.slug}</div>
-                  </td>
-                  <td className="py-2 pr-2">
-                    <input
-                      type="text"
-                      defaultValue={formatNumber(p.priceCents/100)}
-                      onBlur={(e) => {
-                        const cents = parsePriceToCents(e.currentTarget.value, p.priceCents);
-                        // Reformat input visually to locale with two decimals
-                        e.currentTarget.value = formatNumber(cents / 100);
-                        if (cents !== p.priceCents) onUpdateField(p, { priceCents: cents });
-                      }}
-                      className="w-28 border border-light-glass-border rounded-md px-2 py-1 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30 text-sm"
-                      title="Price"
-                      inputMode="decimal"
-                    />
-                    <span className="ml-1 text-xs text-light-muted dark:text-dark-muted">{p.currency}</span>
-                  </td>
-                  <td className="py-2 pr-2">
-                    <input
-                      type="number"
-                      min={0}
-                      defaultValue={p.stock}
-                      onBlur={(e) => onUpdateField(p, { stock: Number(e.target.value) || 0 })}
-                      className="w-20 border border-light-glass-border rounded-md px-2 py-1 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30 text-sm"
-                      title="Stock"
-                    />
-                  </td>
-                  <td className="py-2 pr-2">
-                    <button
-                      onClick={() => onToggleStatus(p)}
-                      className={`text-xs px-2 py-1 rounded border ${p.status === "PUBLISHED" ? "border-emerald-400/50" : "border-amber-400/50"}`}
-                      title="Toggle Draft/Published"
-                    >
-                      {p.status}
-                    </button>
-                  </td>
-                  <td className="py-2 pr-2">
-                    <div className="flex gap-3">
-                      <a className="underline underline-offset-4" href={`/dashboard/products/${p.id}/edit`}>Edit</a>
-                      {p.status === 'ARCHIVED' ? (
-                        <button className="underline underline-offset-4" onClick={() => onUpdateField(p, { status: 'DRAFT' as any })}>Unarchive</button>
-                      ) : (
-                        <button className="underline underline-offset-4" onClick={() => onArchiveSingle(p)}>Archive</button>
-                      )}
-                      <button className="underline underline-offset-4" onClick={() => onDelete(p.id)}>Delete</button>
-                      <a className="underline underline-offset-4" href={`/products/${p.slug}`}>View</a>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-3 flex items-center justify-between">
-          <div className="text-sm text-light-muted dark:text-dark-muted">Total: {total}</div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm">Per page</label>
-            <select value={take} onChange={(e) => { setPage(1); setTake(Number(e.target.value)); }} className="border border-light-glass-border rounded-md px-2 py-1 bg-white/30 dark:bg-zinc-800/30 text-sm">
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-            <button className="btn-secondary" disabled={page===1} onClick={() => setPage((p) => Math.max(1, p-1))}>Prev</button>
-            <div className="text-sm">Page {page}</div>
-            <button className="btn-secondary" disabled={(page * take) >= total} onClick={() => setPage((p) => p+1)}>Next</button>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <input type="checkbox" checked={lowStock} onChange={(e) => setLowStock(e.target.checked)} className="form-checkbox h-4 w-4 bg-transparent border-zinc-600 text-blue-500 focus:ring-blue-500" />
+              Low Stock
+            </label>
+            {lowStock && (
+              <input
+                type="number"
+                min={1}
+                value={lowStockThreshold}
+                onChange={(e) => setLowStockThreshold(Number(e.target.value) || 1)}
+                className="w-24 border border-white/10 rounded-lg px-2 py-1 bg-black/20 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            )}
           </div>
         </div>
-        </>
+      </div>
+
+      {loading ? (
+        <div className="text-center p-10 text-zinc-500">Loading products...</div>
+      ) : items.length === 0 ? (
+        <div className="text-center p-10 rounded-2xl bg-black/20 border border-white/10 text-zinc-500">No products found.</div>
+      ) : (
+        <div className="space-y-3">
+          {sorted.map(p => (
+            <div key={p.id} className="group grid grid-cols-12 items-center gap-4 p-4 rounded-2xl bg-black/20 border border-white/10 hover:bg-black/30 transition-colors">
+              <div className="col-span-1">
+                <input type="checkbox" checked={!!selected[p.id]} onChange={(e) => setSelected((prev) => ({ ...prev, [p.id]: e.target.checked }))} className="form-checkbox h-4 w-4 bg-transparent border-zinc-600 text-blue-500 focus:ring-blue-500" />
+              </div>
+              <div className="col-span-1">
+                {p.images && p.images.length > 0 ? (
+                  <img src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} className="h-14 w-14 object-cover rounded-lg" />
+                ) : (
+                  <div className="h-14 w-14 rounded-lg bg-black/20" />
+                )}
+              </div>
+              <div className="col-span-4">
+                <a href={`/products/${p.slug}`} className="font-semibold text-white hover:text-blue-400 transition-colors">{p.title}</a>
+                <div className="text-xs text-zinc-500">/{p.slug}</div>
+              </div>
+              <div className="col-span-2">
+                <StatusBadge status={p.status} />
+              </div>
+              <div className="col-span-2 text-zinc-300">
+                <span className={p.stock < lowStockThreshold ? 'text-amber-400 font-bold' : ''}>{p.stock}</span> in stock
+              </div>
+              <div className="col-span-1 font-semibold text-white">
+                ${(p.priceCents / 100).toFixed(2)}
+              </div>
+              <div className="col-span-1 flex items-center justify-end">
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-900 border border-zinc-700 rounded-full px-1 py-1">
+                <a href={`/dashboard/products/${p.id}/edit`} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white"><Edit size={16} /></a>
+                <a href={`/products/${p.slug}`} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white"><Eye size={16} /></a>
+                <button onClick={() => onArchiveSingle(p)} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white"><Archive size={16} /></button>
+                <button onClick={() => onDelete(p.id)} className="p-2 rounded-full hover:bg-red-500/20 text-red-400"><Trash2 size={16} /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* Sticky bulk toolbar (shows only when any rows are selected) */}
       {anySelected && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 shadow-lg rounded-full border border-light-glass-border bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md px-3 py-2 flex items-center gap-2">
-          <div className="text-xs mr-2">{selectedIds.length} selected</div>
-          <button className="btn-secondary text-xs" disabled={!!bulkLoading} onClick={() => bulkSetStatus('PUBLISHED')}>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 shadow-lg rounded-full border border-white/10 bg-black/50 backdrop-blur-md px-4 py-2 flex items-center gap-3">
+          <span className="text-sm text-zinc-300 mr-2">{selectedIds.length} selected</span>
+          <button className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition-colors" disabled={!!bulkLoading} onClick={() => bulkSetStatus('PUBLISHED')}>
             {bulkLoading === 'publish' ? 'Publishing…' : 'Publish'}
           </button>
-          <button className="btn-secondary text-xs" disabled={!!bulkLoading} onClick={() => bulkSetStatus('DRAFT')}>
-            {bulkLoading === 'draft' ? 'Drafting…' : 'Mark draft'}
+          <button className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-colors" disabled={!!bulkLoading} onClick={() => bulkSetStatus('DRAFT')}>
+            {bulkLoading === 'draft' ? 'Drafting…' : 'Set as Draft'}
           </button>
-          <button className="btn-secondary text-xs" disabled={!!bulkLoading} onClick={() => bulkSetStatus('ARCHIVED')}>
-            {bulkLoading === 'delete' ? 'Archiving…' : 'Archive'}
-          </button>
-          <button className="btn-danger text-xs" disabled={!!bulkLoading} onClick={bulkDelete}>
+          <button className="px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors" disabled={!!bulkLoading} onClick={bulkDelete}>
             {bulkLoading === 'delete' ? 'Deleting…' : 'Delete'}
           </button>
-          <button className="text-xs underline underline-offset-4" onClick={() => setSelected({})}>Clear</button>
+          <button className="text-xs text-zinc-400 hover:text-white" onClick={() => setSelected({})}>Clear</button>
         </div>
       )}
     </main>

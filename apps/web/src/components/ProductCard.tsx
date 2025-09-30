@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import HeroLiquidGlass from "./ui/HeroLiquidGlass";
 import StaticImage from "./StaticImage";
+import ProductQuickView from "./ProductQuickView";
 import { motion } from "framer-motion";
+import { Eye } from "lucide-react";
 
 interface ProductCardProps {
   product: {
@@ -16,6 +19,7 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -27,7 +31,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <HeroLiquidGlass className="w-full h-full" padding="0" cornerRadius={24}>
         <div className="p-5 flex flex-col h-full">
           {/* Image */}
-          <div className="relative mb-4 overflow-hidden rounded-lg">
+          <div className="relative mb-4 overflow-hidden rounded-lg group">
             {product.images && product.images.length > 0 ? (
               <StaticImage
                 fileName={product.images[0].storageKey}
@@ -37,6 +41,18 @@ export default function ProductCard({ product }: ProductCardProps) {
             ) : (
               <div className="h-48 bg-light-muted/10 dark:bg-dark-muted/10 rounded-lg"/>
             )}
+            
+            {/* Quick view button (appears on hover) */}
+            <button
+              onClick={() => setQuickViewOpen(true)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              aria-label="Quick view"
+            >
+              <div className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full text-white text-sm font-medium">
+                <Eye className="w-4 h-4" />
+                Quick View
+              </div>
+            </button>
             
             {/* Price tag */}
             <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full text-white text-sm font-medium">
@@ -62,6 +78,13 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         </div>
       </HeroLiquidGlass>
+      
+      {/* Quick View Modal */}
+      <ProductQuickView
+        productId={product.id}
+        isOpen={quickViewOpen}
+        onClose={() => setQuickViewOpen(false)}
+      />
     </motion.div>
   );
 }

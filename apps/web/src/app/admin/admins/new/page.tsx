@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { API_URL } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
+import { UserPlus } from 'lucide-react';
 
 export default function AdminCreateAdminPage() {
   const { push } = useToast();
@@ -23,7 +24,7 @@ export default function AdminCreateAdminPage() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
-      push({ type: "success", title: "Admin created", message: `${body.email}` });
+      push({ type: "success", title: "Admin created", message: `New admin account for ${body.email} created.` });
       setEmail("");
       setPassword("");
       setName("");
@@ -34,24 +35,36 @@ export default function AdminCreateAdminPage() {
     }
   };
 
+  const FormInput = ({ label, id, ...props }: any) => (
+    <div>
+      <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor={id}>{label}</label>
+      <input id={id} {...props} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+    </div>
+  );
+
   return (
     <main>
-      <h1 className="text-3xl font-bold mb-4">Admin · Create admin account</h1>
-      <form onSubmit={onSubmit} className="max-w-md card-base card-glass p-4 grid gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div>
-          <label className="block text-sm mb-1" htmlFor="name">Name</label>
-          <input id="name" className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
+          <h1 className="text-2xl font-bold text-white">Create New Admin</h1>
+          <p className="text-zinc-400">Onboard a new administrator to the platform.</p>
         </div>
-        <div>
-          <label className="block text-sm mb-1" htmlFor="email">Email</label>
-          <input id="email" type="email" className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" required />
-        </div>
-        <div>
-          <label className="block text-sm mb-1" htmlFor="password">Password</label>
-          <input id="password" type="password" className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
-        </div>
-        <button className="btn-primary" disabled={loading}>{loading ? "Creating…" : "Create admin"}</button>
-      </form>
+      </div>
+
+      <div className="max-w-2xl mx-auto">
+        <form onSubmit={onSubmit} className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6 space-y-4">
+          <FormInput label="Full Name" id="name" value={name} onChange={(e:any) => setName(e.target.value)} placeholder="e.g., Ada Lovelace" required />
+          <FormInput label="Email Address" id="email" type="email" value={email} onChange={(e:any) => setEmail(e.target.value)} placeholder="admin@example.com" required />
+          <FormInput label="Password" id="password" type="password" value={password} onChange={(e:any) => setPassword(e.target.value)} placeholder="••••••••" required />
+          
+          <div className="pt-2">
+            <button type="submit" className="w-full px-4 py-2.5 rounded-lg border border-transparent bg-blue-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-blue-500 transition-colors" disabled={loading}>
+              <UserPlus size={16} />
+              {loading ? "Creating Account…" : "Create Admin Account"}
+            </button>
+          </div>
+        </form>
+      </div>
     </main>
   );
 }

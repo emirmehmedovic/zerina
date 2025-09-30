@@ -11,6 +11,8 @@ import shopsRouter from './routes/shops';
 import { requireAuth } from './middleware/auth';
 import devRouter from './routes/dev';
 import adminRouter from './routes/admin';
+import adminAnalyticsRouter from './routes/admin-analytics';
+import adminAnalyticsV2Router from './routes/admin-analytics-v2';
 import path from 'path';
 import fs from 'fs';
 import uploadsRouter from './routes/uploads';
@@ -18,6 +20,7 @@ import checkoutRouter from './routes/checkout';
 import addressesRouter from './routes/addresses';
 import ordersRouter from './routes/orders';
 import vendorRouter from './routes/vendor';
+import accountRoutes from './routes/account';
 import productImagesRouter from './routes/product-images';
 import productVariantsRouter from './routes/product-variants';
 import { csrfProtect } from './middleware/csrf';
@@ -107,7 +110,10 @@ app.use('/api/v1/checkout', checkoutRouter);
 app.use('/api/v1/addresses', addressesRouter);
 app.use('/api/v1/orders', ordersRouter);
 app.use('/api/v1/vendor', vendorRouter);
+app.use('/api/v1/account', accountRoutes);
 app.use('/api/v1/admin', adminRouter);
+app.use('/api/v1/admin/analytics', adminAnalyticsRouter);
+app.use('/api/v1/admin/analytics-v2', adminAnalyticsV2Router);
 
 // Product related routes
 app.use('/api/v1/products', productImagesRouter);

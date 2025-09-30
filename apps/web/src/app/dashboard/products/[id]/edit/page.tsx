@@ -6,7 +6,7 @@ import { API_URL } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
 import { getCsrfToken } from "@/lib/csrf";
 import { uploadImage } from "@/lib/uploadImage";
-import { getImageUrl } from "@/lib/imageUrl";
+import StaticImage from "@/components/StaticImage";
 
 type Product = {
   id: string;
@@ -412,7 +412,7 @@ export default function EditProductPage() {
             <div className="grid grid-cols-4 gap-2">
               {images.map((im, idx) => (
                 <div key={im.id} className="relative group">
-                  <img src={getImageUrl(im.storageKey) || ''} alt="img" className="h-20 w-full rounded object-cover" />
+                  <StaticImage fileName={im.storageKey} alt="img" className="h-20 w-full rounded object-cover" />
                   <div className="mt-1 flex items-center gap-2">
                     <button type="button" className="text-xs underline" onClick={() => onMove(im.id, -1)} disabled={idx===0}>Up</button>
                     <button type="button" className="text-xs underline" onClick={() => onMove(im.id, 1)} disabled={idx===images.length-1}>Down</button>

@@ -1,14 +1,17 @@
 import { API_URL } from "@/lib/api";
+import CategoriesClient from "./CategoriesClient";
 type Product = { id: string; title: string; slug: string; priceCents: number; currency: string; images?: { storageKey: string }[] };
 type Category = { id: string; name: string; slug: string };
 
-export default async function CategoryDetailPage({ params }: { params: { slug: string } }) {
+export default async function CategoryDetailPage({ params, searchParams }: { params: { slug: string }, searchParams?: { take?: string; skip?: string } }) {
   const { slug } = params;
+  const take = Math.max(1, Math.min(60, Number(searchParams?.take) || 12));
+  const skip = Math.max(0, Number(searchParams?.skip) || 0);
   let data: { items: Product[]; total: number; category?: { id: string; name: string } } = { items: [], total: 0 };
   let categories: Category[] = [];
   try {
     const [res, resCats] = await Promise.all([
-      fetch(`${API_URL}/api/v1/categories/${slug}/products?take=12`, { cache: 'no-store' }),
+      fetch(`${API_URL}/api/v1/categories/${slug}/products?take=${take}&skip=${skip}` , { cache: 'no-store' }),
       fetch(`${API_URL}/api/v1/categories`, { cache: 'no-store' }),
     ]);
     if (res.ok) {
@@ -49,23 +52,12 @@ export default async function CategoryDetailPage({ params }: { params: { slug: s
         {data.items.length === 0 ? (
           <p className="text-light-muted dark:text-dark-muted">No products in this category yet.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {data.items.map((p) => {
-              const img = buildImageUrl(p.images?.[0]?.storageKey);
-              return (
-                <article key={p.id} className="card-base card-glass card-hover p-4">
-                  {img ? (
-                    <img src={img} alt={p.title} className="h-40 w-full object-cover rounded-md mb-3" loading="lazy" />
-                  ) : (
-                    <div className="h-40 bg-light-muted/10 dark:bg-dark-muted/10 rounded-md mb-3"/>
-                  )}
-                  <h3 className="font-semibold mb-1">{p.title}</h3>
-                  <p className="text-light-muted dark:text-dark-muted text-sm">{(p.priceCents/100).toFixed(2)} {p.currency}</p>
-                  <a className="btn-primary inline-block mt-3" href={`/products/${p.slug}`}>View product</a>
-                </article>
-              );
-            })}
-          </div>
+          <CategoriesClient
+            slug={slug}
+            initialItems={data.items}
+            total={data.total}
+            initialTake={take}
+          />
         )}
       </div>
     </main>

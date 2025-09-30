@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { API_URL } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
+import { Search, CheckCircle, XCircle, AlertTriangle, Eye, Store, ShieldCheck, ShieldAlert, ShieldClose } from 'lucide-react';
 
- type Shop = {
+type Shop = {
   id: string;
   name: string;
   slug: string;
@@ -13,10 +14,17 @@ import { useToast } from "@/components/ToastProvider";
   ownerId: string;
 };
 
+const statusConfig: Record<Shop['status'], { label: string; icon: React.ElementType; color: string; }> = {
+  PENDING_APPROVAL: { label: "Pending", icon: ShieldAlert, color: "text-yellow-400" },
+  ACTIVE: { label: "Active", icon: ShieldCheck, color: "text-emerald-400" },
+  SUSPENDED: { label: "Suspended", icon: ShieldClose, color: "text-rose-500" },
+  CLOSED: { label: "Closed", icon: XCircle, color: "text-zinc-500" },
+};
+
 export default function AdminShopsPage() {
   const { push } = useToast();
   const [items, setItems] = useState<Shop[]>([]);
-  const [status, setStatus] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -26,7 +34,7 @@ export default function AdminShopsPage() {
     setError(null);
     try {
       const url = new URL(`${API_URL}/api/v1/shops`);
-      if (status) url.searchParams.set("status", status);
+      if (statusFilter) url.searchParams.set("status", statusFilter);
       const res = await fetch(url.toString(), { credentials: "include" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -44,7 +52,7 @@ export default function AdminShopsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [statusFilter]);
 
   const filtered = useMemo(
     () => items.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()) || s.slug.includes(q.toLowerCase())),
@@ -70,67 +78,78 @@ export default function AdminShopsPage() {
 
   return (
     <main>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-3xl font-bold">Admin · Shops</h1>
-        <div className="flex items-center gap-2">
-          <input
-            placeholder="Search..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-          />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Admin Shops Launchpad</h1>
+          <p className="text-zinc-400">Manage and review all shops on the platform.</p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative md:col-span-2">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              placeholder="Search by shop name or slug..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
           <select
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            className="w-full border border-white/10 rounded-lg px-3 py-2 bg-black/20 backdrop-blur-md text-zinc-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="">All</option>
-            <option value="PENDING_APPROVAL">PENDING_APPROVAL</option>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="SUSPENDED">SUSPENDED</option>
-            <option value="CLOSED">CLOSED</option>
+            <option value="">All Statuses</option>
+            <option value="PENDING_APPROVAL">Pending Approval</option>
+            <option value="ACTIVE">Active</option>
+            <option value="SUSPENDED">Suspended</option>
+            <option value="CLOSED">Closed</option>
           </select>
         </div>
       </div>
+
       {loading ? (
-        <div className="card-base card-glass">Loading...</div>
+        <div className="text-center p-10 text-zinc-500">Loading shops...</div>
       ) : error ? (
-        <div className="card-base card-glass">{error}</div>
+        <div className="rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 p-6 text-center">{error}</div>
       ) : (
-        <div className="overflow-x-auto card-base card-glass">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left">
-                <th className="py-2">Name</th>
-                <th className="py-2">Slug</th>
-                <th className="py-2">Status</th>
-                <th className="py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((s) => (
-                <tr key={s.id} className="border-t border-light-glass-border">
-                  <td className="py-2 pr-2">{s.name}</td>
-                  <td className="py-2 pr-2">/{s.slug}</td>
-                  <td className="py-2 pr-2">{s.status}</td>
-                  <td className="py-2 pr-2">
-                    <div className="flex items-center gap-2">
-                      <a className="underline underline-offset-4" href={`/shops/${s.slug}`}>View</a>
-                      {s.status !== "ACTIVE" && (
-                        <button className="underline underline-offset-4" onClick={() => setShopStatus(s.id, "ACTIVE")}>Approve</button>
-                      )}
-                      {s.status !== "SUSPENDED" && (
-                        <button className="underline underline-offset-4" onClick={() => setShopStatus(s.id, "SUSPENDED")}>Suspend</button>
-                      )}
-                      {s.status !== "CLOSED" && (
-                        <button className="underline underline-offset-4" onClick={() => setShopStatus(s.id, "CLOSED")}>Close</button>
-                      )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filtered.map((s) => {
+            const StatusIcon = statusConfig[s.status].icon;
+            const statusColor = statusConfig[s.status].color;
+            return (
+              <div key={s.id} className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-5 flex flex-col">
+                <div className="flex-grow">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <Store className="text-zinc-500" size={20} />
+                      <h3 className="font-bold text-white text-lg">{s.name}</h3>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <div className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full ${statusColor} bg-white/5`}>
+                      <StatusIcon size={14} />
+                      <span>{statusConfig[s.status].label}</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-zinc-400 mb-4 ml-8">/{s.slug}</p>
+                </div>
+                
+                <div className="flex items-center gap-2 flex-wrap">
+                  <a className="flex-1 text-center px-3 py-2 text-sm rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 font-semibold flex items-center justify-center gap-2 transition-colors" href={`/shops/${s.slug}`}><Eye size={16} /> View</a>
+                  {s.status !== "ACTIVE" && (
+                    <button className="flex-1 text-center px-3 py-2 text-sm rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-semibold transition-colors" onClick={() => setShopStatus(s.id, "ACTIVE")}>Approve</button>
+                  )}
+                  {s.status !== "SUSPENDED" && (
+                    <button className="flex-1 text-center px-3 py-2 text-sm rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 font-semibold transition-colors" onClick={() => setShopStatus(s.id, "SUSPENDED")}>Suspend</button>
+                  )}
+                  {s.status !== "CLOSED" && (
+                    <button className="flex-1 text-center px-3 py-2 text-sm rounded-lg bg-zinc-500/20 text-zinc-400 hover:bg-zinc-500/30 font-semibold transition-colors" onClick={() => setShopStatus(s.id, "CLOSED")}>Close</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </main>

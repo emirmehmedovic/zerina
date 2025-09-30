@@ -9,7 +9,7 @@ type StatTileProps = {
   trend?: number;
   trendLabel?: string;
   variant?: "default" | "primary" | "success" | "warning" | "danger";
-  icon?: React.ReactNode;
+  icon?: React.ReactElement<{ className?: string }>;
 };
 
 export default function StatTile({ 
@@ -23,12 +23,27 @@ export default function StatTile({
 }: StatTileProps) {
   // Determine color scheme based on variant
   const variantClasses = {
-    default: "bg-white/70 dark:bg-zinc-900/70 border-light-glass-border",
-    primary: "bg-white/70 dark:bg-zinc-900/70 border-indigo-200 dark:border-indigo-900/30",
-    success: "bg-white/70 dark:bg-zinc-900/70 border-emerald-200 dark:border-emerald-900/30",
-    warning: "bg-white/70 dark:bg-zinc-900/70 border-amber-200 dark:border-amber-900/30",
-    danger: "bg-white/70 dark:bg-zinc-900/70 border-rose-200 dark:border-rose-900/30"
-  };
+    default: {
+      gradient: "from-zinc-700 to-zinc-800",
+      icon: "text-zinc-400",
+    },
+    primary: {
+      gradient: "from-blue-500 to-purple-600",
+      icon: "text-blue-300",
+    },
+    success: {
+      gradient: "from-emerald-500 to-green-600",
+      icon: "text-emerald-300",
+    },
+    warning: {
+      gradient: "from-amber-500 to-orange-600",
+      icon: "text-amber-300",
+    },
+    danger: {
+      gradient: "from-rose-500 to-red-600",
+      icon: "text-rose-300",
+    }
+  } as const;
   
   // Determine trend color
   let trendColor = "";
@@ -41,23 +56,32 @@ export default function StatTile({
   }
   
   const inner = (
-    <div className={`rounded-xl border backdrop-blur-md shadow-sm p-4 transition-all hover:shadow-md ${variantClasses[variant]}`}>
-      <div className="flex justify-between items-start">
-        <div className="text-sm text-light-muted dark:text-dark-muted">{label}</div>
-        {icon && <div className="text-light-muted dark:text-dark-muted">{icon}</div>}
-      </div>
-      <div className="text-2xl font-bold text-light-ink dark:text-white mt-1">{value}</div>
-      {(trend !== undefined || trendLabel) && (
-        <div className={`text-xs mt-1 flex items-center gap-1 ${trendColor}`}>
-          {trend !== undefined && (
-            <span>
-              {trend > 0 ? '↑' : trend < 0 ? '↓' : '→'}
-              {Math.abs(trend).toFixed(1)}%
-            </span>
+    <div className={`group relative overflow-hidden rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-5 transition-all duration-300 hover:bg-black/30`}>
+      {/* Accent border that glows on hover */}
+      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${variantClasses[variant].gradient} transition-all duration-300 group-hover:shadow-[0_0_15px] ${variantClasses[variant].icon}`} />
+
+      <div className="relative">
+        <div className="flex justify-between items-start mb-3">
+          <div className="text-sm uppercase tracking-wider text-zinc-400 group-hover:text-white transition-colors">{label}</div>
+          {icon && (
+            <div className={`transition-transform duration-300 group-hover:scale-110 ${variantClasses[variant].icon} h-6 w-6`}>
+              {icon}
+            </div>
           )}
-          {trendLabel && <span className="text-light-muted dark:text-dark-muted">{trendLabel}</span>}
         </div>
-      )}
+        <div className="text-3xl font-bold text-white">{value}</div>
+        {(trend !== undefined || trendLabel) && (
+          <div className={`text-sm mt-2 flex items-center gap-1.5 ${trendColor}`}>
+            {trend !== undefined && (
+              <span className="flex items-center gap-1 font-semibold">
+                {trend > 0 ? '↑' : trend < 0 ? '↓' : '→'}
+                {Math.abs(trend).toFixed(1)}%
+              </span>
+            )}
+            {trendLabel && <span className="text-zinc-400 font-light">{trendLabel}</span>}
+          </div>
+        )}
+      </div>
     </div>
   );
   
@@ -65,7 +89,7 @@ export default function StatTile({
     return (
       <a 
         href={href} 
-        className="block focus:outline-none focus:ring-2 focus:ring-indigo-400/50 rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98]"
+        className="block focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-2xl transition-transform duration-200 hover:-translate-y-1 active:scale-[0.98]"
       >
         {inner}
       </a>

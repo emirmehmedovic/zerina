@@ -8,7 +8,7 @@ interface LogoutButtonProps {
   className?: string;
 }
 
-export default function LogoutButton({ className = "" }: LogoutButtonProps) {
+export default function LogoutButton({ className }: LogoutButtonProps) {
   const router = useRouter();
   
   const handleLogout = async () => {
@@ -30,7 +30,7 @@ export default function LogoutButton({ className = "" }: LogoutButtonProps) {
   return (
     <button 
       onClick={handleLogout}
-      className={`flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors ${className}`}
+      className={className || `group flex w-full items-center px-3 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors`}
     >
       <LogOut className="h-4 w-4 mr-2" />
       Logout

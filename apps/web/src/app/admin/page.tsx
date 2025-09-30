@@ -1,4 +1,6 @@
 import { API_URL } from "@/lib/api";
+import StatTile from '@/components/ui/StatTile';
+import { Store, CheckCircle, Package, AlertTriangle, ArrowRight } from 'lucide-react';
 
 async function getCounts() {
   const [shopsAll, shopsPending, shopsActive, productsAll, lowStock] = await Promise.all([
@@ -22,33 +24,31 @@ async function getCounts() {
 export default async function AdminOverviewPage() {
   const counts = await getCounts();
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="card-base card-glass p-4">
-        <div className="text-sm text-light-muted dark:text-dark-muted">Total shops</div>
-        <div className="text-2xl font-bold">{counts.shopsTotal}</div>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatTile label="Total Shops" value={counts.shopsTotal} icon={<Store />} />
+        <StatTile label="Pending Approval" value={counts.shopsPending} icon={<CheckCircle />} />
+        <StatTile label="Total Products" value={counts.productsTotal} icon={<Package />} />
+        <StatTile label="Low Stock Items" value={counts.lowStockCount} icon={<AlertTriangle />} />
       </div>
-      <div className="card-base card-glass p-4">
-        <div className="text-sm text-light-muted dark:text-dark-muted">Pending approval</div>
-        <div className="text-2xl font-bold">{counts.shopsPending}</div>
-      </div>
-      <div className="card-base card-glass p-4">
-        <div className="text-sm text-light-muted dark:text-dark-muted">Active shops</div>
-        <div className="text-2xl font-bold">{counts.shopsActive}</div>
-      </div>
-      <div className="card-base card-glass p-4">
-        <div className="text-sm text-light-muted dark:text-dark-muted">Total products</div>
-        <div className="text-2xl font-bold">{counts.productsTotal}</div>
-      </div>
-      <a className="card-base card-glass p-4 md:col-span-2 block" href="/admin/inventory?lowStock=1&lowStockThreshold=5">
-        <div className="text-sm text-light-muted dark:text-dark-muted">Low stock (example threshold &lt; 5)</div>
-        <div className="text-2xl font-bold">{counts.lowStockCount}</div>
-      </a>
-      <div className="card-base card-glass p-4 md:col-span-2">
-        <div className="text-sm text-light-muted dark:text-dark-muted mb-2">Quick links</div>
-        <div className="flex flex-wrap gap-3">
-          <a className="btn-primary" href="/admin/inventory">Manage inventory</a>
-          <a className="btn-primary" href="/admin/products/new">Create product</a>
-          <a className="btn-primary" href="/admin/shops">Review shops</a>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
+          <div className="flex flex-wrap gap-4">
+            <a href="/admin/inventory" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 transition-colors">
+              Manage Inventory <ArrowRight size={16} />
+            </a>
+            <a href="/admin/products/new" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 transition-colors">
+              Create Product <ArrowRight size={16} />
+            </a>
+            <a href="/admin/shops" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 transition-colors">
+              Review Shops <ArrowRight size={16} />
+            </a>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-gradient-to-br from-red-500/20 to-orange-600/20 backdrop-blur-md border border-red-500/30 p-6">
+          <h3 className="text-lg font-semibold text-red-200 mb-2">System Status</h3>
+          <p className="text-red-300/80">All systems operational.</p>
         </div>
       </div>
     </div>

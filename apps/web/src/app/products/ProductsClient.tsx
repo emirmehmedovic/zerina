@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { API_URL } from "@/lib/api";
 import ProductCard from "@/components/ProductCard";
 import HeroLiquidGlass from "@/components/ui/HeroLiquidGlass";
@@ -27,11 +27,12 @@ type Category = {
 
 interface ProductsClientProps {
   initialItems: Product[];
+  initialTotal?: number;
   categories: Category[];
   initialCategoryId?: string;
 }
 
-export default function ProductsClient({ initialItems, categories, initialCategoryId = "" }: ProductsClientProps) {
+export default function ProductsClient({ initialItems, initialTotal, categories, initialCategoryId = "" }: ProductsClientProps) {
   const [items, setItems] = useState<Product[]>(initialItems);
   const [categoryId, setCategoryId] = useState<string>(initialCategoryId);
   const [minPrice, setMinPrice] = useState<number>(0);
@@ -39,6 +40,10 @@ export default function ProductsClient({ initialItems, categories, initialCatego
   const [ratings, setRatings] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState<boolean>(false);
+  const [skip, setSkip] = useState<number>(initialItems.length);
+  const [total, setTotal] = useState<number>(initialTotal ?? initialItems.length);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Handle category change
   const handleCategoryChange = async (id: string) => {
@@ -66,12 +71,13 @@ export default function ProductsClient({ initialItems, categories, initialCatego
     await fetchProducts(categoryId, minPrice, maxPrice, ratings);
   };
 
-  // Fetch products with filters
+  // Fetch products with filters (resets pagination)
   const fetchProducts = async (catId: string, min: number, max: number, ratingFilters: number[]) => {
     setLoading(true);
     try {
       const url = new URL(`${API_URL}/api/v1/products`);
       url.searchParams.set('take', '12');
+      url.searchParams.set('skip', '0');
       if (catId) url.searchParams.set('categoryId', catId);
       if (min > 0) url.searchParams.set('minPrice', min.toString());
       if (max < 1000) url.searchParams.set('maxPrice', max.toString());
@@ -84,8 +90,10 @@ export default function ProductsClient({ initialItems, categories, initialCatego
       
       const res = await fetch(url.toString(), { cache: 'no-store' });
       if (res.ok) {
-        const data = (await res.json()) as { items: Product[] };
+        const data = (await res.json()) as { items: Product[]; total?: number };
         setItems(data.items);
+        setSkip(data.items.length);
+        setTotal(data.total ?? data.items.length);
       }
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -93,6 +101,51 @@ export default function ProductsClient({ initialItems, categories, initialCatego
       setLoading(false);
     }
   };
+
+  // Load more products (infinite scroll)
+  const loadMore = async () => {
+    if (loadingMore || items.length >= total) return;
+    setLoadingMore(true);
+    try {
+      const url = new URL(`${API_URL}/api/v1/products`);
+      url.searchParams.set('take', '12');
+      url.searchParams.set('skip', skip.toString());
+      if (categoryId) url.searchParams.set('categoryId', categoryId);
+      if (minPrice > 0) url.searchParams.set('minPrice', minPrice.toString());
+      if (maxPrice < 1000) url.searchParams.set('maxPrice', maxPrice.toString());
+      if (ratings.length > 0) {
+        url.searchParams.set('minRating', Math.min(...ratings).toString());
+      }
+      
+      const res = await fetch(url.toString(), { cache: 'no-store' });
+      if (res.ok) {
+        const data = (await res.json()) as { items: Product[]; total?: number };
+        setItems((prev) => [...prev, ...data.items]);
+        setSkip((s) => s + data.items.length);
+        setTotal(data.total ?? total);
+      }
+    } catch (error) {
+      console.error("Error loading more products:", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const canLoad = useMemo(() => !loadingMore && !loading && items.length < total, [loadingMore, loading, items.length, total]);
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const el = sentinelRef.current;
+    const io = new IntersectionObserver((entries) => {
+      const e = entries[0];
+      if (e.isIntersecting && canLoad) {
+        loadMore();
+      }
+    }, { rootMargin: "600px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sentinelRef.current, canLoad, skip]);
 
   return (
     <>
@@ -154,10 +207,10 @@ export default function ProductsClient({ initialItems, categories, initialCatego
         isLoading={loading}
       />
       
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
         {/* Sidebar with advanced filters */}
-        <aside className="hidden lg:block w-full lg:w-80 flex-shrink-0">
-          <div className="sticky top-6">
+        <aside className="hidden lg:block w-full lg:w-80 flex-shrink-0 self-start">
+          <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
             <ModernFilter 
               title="Filters"
               categories={categories.map(c => ({ id: c.id, label: c.name }))}
@@ -216,6 +269,9 @@ export default function ProductsClient({ initialItems, categories, initialCatego
               ))}
             </motion.div>
           )}
+          <div ref={sentinelRef} className="h-10 flex items-center justify-center text-sm text-light-muted dark:text-dark-muted mt-6">
+            {loadingMore ? "Loading more…" : ""}
+          </div>
         </div>
       </div>
     </>

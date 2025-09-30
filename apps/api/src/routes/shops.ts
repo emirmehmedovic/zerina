@@ -44,6 +44,23 @@ router.post('/', requireAuth, requireRole('VENDOR'), async (req, res) => {
   res.status(201).json(shop);
 });
 
+// GET /api/v1/shops/public — public list of ACTIVE shops (no auth)
+router.get('/public', async (req, res) => {
+  const take = Math.max(1, Math.min(100, Number((req.query as any).take) || 50));
+  const skip = Math.max(0, Number((req.query as any).skip) || 0);
+  const [items, total] = await Promise.all([
+    prisma.shop.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip,
+      select: { id: true, name: true, slug: true, description: true, status: true },
+    }),
+    prisma.shop.count({ where: { status: 'ACTIVE' } }),
+  ]);
+  res.json({ items, total });
+});
+
 // PATCH /api/v1/shops/:id — update name/description (owner only)
 router.patch('/:id', requireAuth, requireRole('VENDOR', 'ADMIN'), async (req, res) => {
   const user = (req as any).user as { sub: string; role: 'BUYER' | 'VENDOR' | 'ADMIN' };

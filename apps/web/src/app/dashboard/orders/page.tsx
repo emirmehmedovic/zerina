@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { API_URL } from "@/lib/api";
 import { getCsrfToken } from "@/lib/csrf";
+import { motion, AnimatePresence } from 'framer-motion';
+import { StatusBadge } from '@/components/StatusBadge';
+import { Search, ChevronDown } from 'lucide-react';
 
 type VendorOrder = {
   id: string;
@@ -139,119 +142,111 @@ export default function VendorOrdersPage() {
 
   return (
     <main>
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3">
-        <h1 className="text-3xl font-bold tracking-tight">Shop Orders</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            placeholder="Search order ID..."
-            value={q}
-            onChange={(e)=>{ setPage(1); setQ(e.target.value); }}
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-          />
-          <select className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30" value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }}>
-            <option value="">All</option>
-            <option value="PENDING_PAYMENT">Pending payment</option>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Order Hub</h1>
+          <p className="text-zinc-400">Manage and track all customer orders.</p>
+        </div>
+        <button className="px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-sm text-zinc-200 hover:bg-white/5 transition-colors" onClick={exportCSV}>Export CSV</button>
+      </div>
+
+      <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-5 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          <div className="relative lg:col-span-2">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              placeholder="Search by Order ID or customer..."
+              value={q}
+              onChange={(e) => { setPage(1); setQ(e.target.value); }}
+              className="w-full pl-10 pr-4 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
+          <select
+            value={status}
+            onChange={(e) => { setPage(1); setStatus(e.target.value); }}
+            className="border border-white/10 rounded-lg px-3 py-2 bg-black/20 backdrop-blur-md text-zinc-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          >
+            <option value="">All Statuses</option>
+            <option value="PENDING_PAYMENT">Pending</option>
             <option value="PROCESSING">Processing</option>
             <option value="SHIPPED">Shipped</option>
             <option value="DELIVERED">Delivered</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
-          <input
-            type="date"
-            value={from}
-            onChange={(e)=>{ setPage(1); setFrom(e.target.value); }}
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-            title="From date"
-          />
-          <input
-            type="date"
-            value={to}
-            onChange={(e)=>{ setPage(1); setTo(e.target.value); }}
-            className="border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-            title="To date"
-          />
-          {(from || to || status) && (
-            <button className="btn-secondary" onClick={()=>{ setFrom(""); setTo(""); setStatus(""); setPage(1); }}>Clear</button>
-          )}
-          <button className="btn-secondary" onClick={exportCSV}>Export CSV</button>
+          <div className="lg:col-span-2 flex items-center gap-2">
+            <input type="date" value={from} onChange={(e) => { setPage(1); setFrom(e.target.value); }} className="w-full border border-white/10 rounded-lg px-3 py-2 bg-black/20 text-zinc-400 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            <span className="text-zinc-500">to</span>
+            <input type="date" value={to} onChange={(e) => { setPage(1); setTo(e.target.value); }} className="w-full border border-white/10 rounded-lg px-3 py-2 bg-black/20 text-zinc-400 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
         </div>
       </div>
+
       {loading ? (
-        <div className="card-base card-glass p-4">Loading…</div>
+        <div className="text-center p-10 text-zinc-500">Loading orders...</div>
       ) : error ? (
-        <div className="card-base card-glass p-4 text-red-600 text-sm">{error}</div>
+        <div className="rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 p-4 text-sm">{error}</div>
       ) : orders.length === 0 ? (
-        <div className="card-base card-glass p-4">No orders yet.</div>
+        <div className="text-center p-10 rounded-2xl bg-black/20 border border-white/10 text-zinc-500">No orders found.</div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filteredOrders.map((o) => (
-            <div key={o.id} className="card-base card-glass p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">Order #{o.id.slice(0,8)} · <span className="text-light-muted dark:text-dark-muted">{new Date(o.createdAt).toLocaleString()}</span></div>
-                <div className="text-sm">{(o.totalCents/100).toFixed(2)} {o.currency}</div>
-              </div>
-              <div className="text-xs text-light-muted dark:text-dark-muted mt-1">
-                Status:
-                <span
-                  className={
-                    "ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs border " +
-                    (o.status === 'DELIVERED' ? 'border-emerald-400/50 text-emerald-700 dark:text-emerald-300'
-                    : o.status === 'SHIPPED' ? 'border-indigo-400/50 text-indigo-700 dark:text-indigo-300'
-                    : o.status === 'PROCESSING' ? 'border-blue-400/50 text-blue-700 dark:text-blue-300'
-                    : o.status === 'PENDING_PAYMENT' ? 'border-amber-400/50 text-amber-700 dark:text-amber-300'
-                    : o.status === 'CANCELLED' ? 'border-rose-400/50 text-rose-700 dark:text-rose-300'
-                    : 'border-zinc-400/50 text-zinc-700 dark:text-zinc-300')
-                  }
-                >
-                  {o.status}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <button
-                  className="text-xs underline underline-offset-4"
-                  onClick={() => setExpandedId((prev) => prev === o.id ? null : o.id)}
-                >
-                  {expandedId === o.id ? 'Hide details' : 'View details'}
-                </button>
-              </div>
-              {expandedId === o.id && (
-                <div className="mt-2 rounded-md border border-light-glass-border bg-white/40 dark:bg-zinc-800/40 p-3">
-                  <div className="text-xs text-light-muted dark:text-dark-muted mb-2">Items</div>
-                  <ul className="text-sm divide-y divide-light-glass-border">
-                    {o.items?.map((it) => (
-                      <li key={it.id} className="py-1 flex items-center justify-between">
-                        <div>
-                          {it.quantity} × <a className="underline underline-offset-4" href={`/dashboard/products/${it.productId}/edit`}>{it.productId}</a>{it.variantId ? ` (variant)` : ''}
-                        </div>
-                        <div>{(it.priceCents/100).toFixed(2)} {o.currency}</div>
-                      </li>
-                    ))}
-                  </ul>
+            <div key={o.id} className="rounded-2xl bg-black/20 border border-white/10 transition-colors hover:bg-black/30">
+              <div className="p-4 cursor-pointer" onClick={() => setExpandedId(prev => prev === o.id ? null : o.id)}>
+                <div className="grid grid-cols-10 items-center gap-4">
+                  <div className="col-span-3">
+                    <div className="font-mono text-xs text-zinc-500">#{o.id}</div>
+                    <div className="font-semibold text-white">{(o as any).buyer?.name || 'Unknown Customer'}</div>
+                  </div>
+                  <div className="col-span-2">
+                    <StatusBadge status={o.status} />
+                  </div>
+                  <div className="col-span-3 text-sm text-zinc-400">
+                    {new Date(o.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                  </div>
+                  <div className="col-span-1 text-right font-semibold text-white">
+                    ${(o.totalCents / 100).toFixed(2)}
+                  </div>
+                  <div className="col-span-1 flex justify-end items-center">
+                    <motion.div animate={{ rotate: expandedId === o.id ? 180 : 0 }}><ChevronDown size={20} className="text-zinc-500" /></motion.div>
+                  </div>
                 </div>
-              )}
-              <div className="mt-2 flex flex-wrap gap-2">
-                {actionsFor(o).map((a) => (
-                  <button key={a.to} className="btn-secondary" disabled={updatingId === o.id} onClick={() => setStatusFor(o.id, a.to)}>
-                    {updatingId === o.id ? 'Saving…' : a.label}
-                  </button>
-                ))}
               </div>
+              <AnimatePresence>
+                {expandedId === o.id && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border-t border-white/10 p-4 space-y-4">
+                      <div>
+                        <h4 className="text-sm font-semibold text-zinc-300 mb-2">Items</h4>
+                        <ul className="text-sm divide-y divide-white/10">
+                          {o.items?.map((it) => (
+                            <li key={it.id} className="py-2 flex items-center justify-between">
+                              <div>
+                                {it.quantity} × <a className="underline hover:text-blue-400" href={`/dashboard/products/${it.productId}/edit`}>Product #{it.productId.slice(0, 8)}...</a>
+                              </div>
+                              <div className="font-mono text-zinc-400">${(it.priceCents / 100).toFixed(2)}</div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 pt-2">
+                        <h4 className="text-sm font-semibold text-zinc-300">Actions:</h4>
+                        {actionsFor(o).map((a) => (
+                          <button key={a.to} className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition-colors" disabled={updatingId === o.id} onClick={() => setStatusFor(o.id, a.to)}>
+                            {updatingId === o.id ? 'Saving…' : a.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ))}
-          <div className="mt-3 flex items-center justify-between">
-            <div className="text-sm text-light-muted dark:text-dark-muted">Total: {total}</div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm">Per page</label>
-              <select value={take} onChange={(e) => { setPage(1); setTake(Number(e.target.value)); }} className="border border-light-glass-border rounded-md px-2 py-1 bg-white/30 dark:bg-zinc-800/30 text-sm">
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-              <button className="btn-secondary" disabled={page===1} onClick={() => setPage((p) => Math.max(1, p-1))}>Prev</button>
-              <div className="text-sm">Page {page}</div>
-              <button className="btn-secondary" disabled={(page * take) >= total} onClick={() => setPage((p) => p+1)}>Next</button>
-            </div>
-          </div>
         </div>
       )}
     </main>

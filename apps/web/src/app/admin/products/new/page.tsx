@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
+import ImageUploader from '@/components/ImageUploader';
+import StaticImage from '@/components/StaticImage';
+import { Save, Send, X } from 'lucide-react';
 
- type Shop = { id: string; name: string; slug: string };
- type CreatedProduct = { id: string; title: string; slug: string };
+type Shop = { id: string; name: string; slug: string };
+type CreatedProduct = { id: string; title: string; slug: string };
 
 export default function AdminNewProductPage() {
   const { push } = useToast();
@@ -19,9 +22,8 @@ export default function AdminNewProductPage() {
   const [priceCents, setPriceCents] = useState<number>(1999);
   const [currency, setCurrency] = useState("EUR");
   const [stock, setStock] = useState<number>(0);
-  const [status, setStatus] = useState<"DRAFT" | "PUBLISHED" | "ARCHIVED" | "SUSPENDED">("DRAFT");
+  const [status, setStatus] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
   const [imagePaths, setImagePaths] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<CreatedProduct | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,26 +50,8 @@ export default function AdminNewProductPage() {
     loadShops();
   }, []);
 
-  const onUpload = async (files: File[]) => {
-    if (!files.length) return;
-    setUploading(true);
-    try {
-      const uploaded: string[] = [];
-      for (const file of files) {
-        const form = new FormData();
-        form.append("file", file);
-        const res = await fetch(`${API_URL}/api/v1/uploads`, { method: "POST", credentials: "include", body: form });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(body?.error || `Upload failed (${res.status})`);
-        uploaded.push(`${API_URL}${body.path}`);
-      }
-      setImagePaths((prev) => [...prev, ...uploaded]);
-      push({ type: "success", title: "Uploaded", message: `${uploaded.length} image(s) uploaded` });
-    } catch (err: any) {
-      push({ type: "error", title: "Upload failed", message: err?.message || "Unknown error" });
-    } finally {
-      setUploading(false);
-    }
+  const onUpload = (path: string) => {
+    setImagePaths((prev) => [...prev, path]);
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -98,139 +82,107 @@ export default function AdminNewProductPage() {
     }
   };
 
+  const FormInput = ({ label, id, ...props }: any) => (
+    <div>
+      <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor={id}>{label}</label>
+      <input id={id} {...props} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+    </div>
+  );
+
+  const FormTextarea = ({ label, id, ...props }: any) => (
+    <div>
+      <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor={id}>{label}</label>
+      <textarea id={id} {...props} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+    </div>
+  );
+
+  const FormSelect = ({ label, id, children, ...props }: any) => (
+    <div>
+      <label className="block text-sm font-medium text-zinc-400 mb-1.5" htmlFor={id}>{label}</label>
+      <select id={id} {...props} className="w-full border border-white/10 rounded-lg px-3 py-2 bg-black/20 backdrop-blur-md text-zinc-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        {children}
+      </select>
+    </div>
+  );
+
   return (
     <main>
-      <h1 className="text-3xl font-bold mb-4">Admin · New product</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Admin Product Launchpad</h1>
+          <p className="text-zinc-400">Create a new product for any shop.</p>
+        </div>
+      </div>
+
       {created ? (
-        <div className="card-base card-glass p-4">
-          <p className="mb-2">Product <span className="font-medium">{created.title}</span> created.</p>
-          <div className="flex gap-3">
-            <a className="btn-primary" href={`/products/${created.slug ?? created.id}`}>View product</a>
-            {shops.length > 0 && (
-              <a className="text-sm underline underline-offset-4" href={`/shops/${shops.find((s) => s.id === shopId)?.slug}`}>View shop</a>
-            )}
+        <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-10 text-center">
+          <h2 className="text-xl font-semibold text-white mb-2">Product Created!</h2>
+          <p className="text-zinc-400 mb-6">New product <span className="font-medium text-emerald-400">{created.title}</span> is now available.</p>
+          <div className="flex items-center justify-center gap-4">
+            <a className="px-4 py-2 rounded-lg border border-transparent bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors" href={`/products/${created.slug || created.id}`}>View Product</a>
+            <a className="px-4 py-2 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 transition-colors" href="/admin/inventory">Back to Inventory</a>
           </div>
         </div>
       ) : (
-        <div className="card-base card-glass">
-          <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 max-w-xl">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm mb-1" htmlFor="shop">Shop</label>
-                <select
-                  id="shop"
-                  disabled={loadingShops}
-                  className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-                  value={shopId}
-                  onChange={(e) => setShopId(e.target.value)}
-                >
-                  {shops.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm mb-1" htmlFor="status">Status</label>
-                <select
-                  id="status"
-                  className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
-                >
-                  <option value="DRAFT">DRAFT</option>
-                  <option value="PUBLISHED">PUBLISHED</option>
-                  <option value="ARCHIVED">ARCHIVED</option>
-                  <option value="SUSPENDED">SUSPENDED</option>
-                </select>
+        <form onSubmit={onSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Core Details</h3>
+              <div className="space-y-4">
+                <FormInput label="Title" id="title" required value={title} onChange={(e:any) => setTitle(e.target.value)} placeholder="e.g., Artisan Ceramic Mug" />
+                <FormTextarea label="Description" id="description" required rows={6} value={description} onChange={(e:any) => setDescription(e.target.value)} placeholder="Describe the product..." />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm mb-1" htmlFor="title">Title</label>
-              <input
-                id="title"
-                required
-                className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Product title"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm mb-1" htmlFor="description">Description</label>
-              <textarea
-                id="description"
-                rows={4}
-                required
-                className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Details about the product"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-sm mb-1" htmlFor="price">Price (cents)</label>
-                <input
-                  id="price"
-                  type="number"
-                  min={0}
-                  className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-                  value={priceCents}
-                  onChange={(e) => setPriceCents(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1" htmlFor="currency">Currency</label>
-                <input
-                  id="currency"
-                  className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1" htmlFor="stock">Stock</label>
-                <input
-                  id="stock"
-                  type="number"
-                  min={0}
-                  className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30"
-                  value={stock}
-                  onChange={(e) => setStock(Number(e.target.value))}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm mb-1" htmlFor="images">Images</label>
-              <input
-                id="images"
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={(e) => e.target.files && onUpload(Array.from(e.target.files))}
-                className="block"
-              />
+            <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Images</h3>
+              <ImageUploader onUpload={onUpload} />
               {imagePaths.length > 0 && (
-                <div className="mt-2 grid grid-cols-4 gap-2">
+                <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                   {imagePaths.map((p) => (
-                    <img key={p} src={p} alt="uploaded" className="h-20 w-full rounded object-cover" />
+                    <div key={p} className="relative group">
+                      <StaticImage fileName={p} alt="uploaded" className="h-24 w-full rounded-lg object-cover" />
+                      <button type="button" onClick={() => setImagePaths(prev => prev.filter(ip => ip !== p))} className="absolute top-1 right-1 h-6 w-6 flex items-center justify-center bg-black/50 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"><X size={14} /></button>
+                    </div>
                   ))}
                 </div>
               )}
-              {uploading && <div className="text-sm text-light-muted dark:text-dark-muted mt-1">Uploading...</div>}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Organization</h3>
+              <div className="space-y-4">
+                <FormSelect label="Shop" id="shop" value={shopId} onChange={(e:any) => setShopId(e.target.value)} disabled={loadingShops}>
+                  {shops.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </FormSelect>
+                <FormSelect label="Status" id="status" value={status} onChange={(e:any) => setStatus(e.target.value)}>
+                  <option value="DRAFT">Draft</option>
+                  <option value="PUBLISHED">Published</option>
+                </FormSelect>
+              </div>
             </div>
 
-            {error && <div className="text-rose-600 text-sm">{error}</div>}
+            <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/10 p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Pricing & Inventory</h3>
+              <div className="space-y-4">
+                <FormInput label="Price (in cents)" id="price" type="number" min={0} value={priceCents} onChange={(e:any) => setPriceCents(Number(e.target.value))} />
+                <FormInput label="Currency" id="currency" value={currency} onChange={(e:any) => setCurrency(e.target.value.toUpperCase())} />
+                <FormInput label="Stock" id="stock" type="number" min={0} value={stock} onChange={(e:any) => setStock(Number(e.target.value))} />
+              </div>
+            </div>
 
-            <button className="btn-primary" disabled={submitting}>
-              {submitting ? "Creating..." : "Create"}
-            </button>
-          </form>
-        </div>
+            <div className="flex items-center gap-3">
+              <button type="submit" onClick={() => setStatus('DRAFT')} className="flex-1 px-4 py-2.5 rounded-lg border border-white/10 bg-black/20 text-zinc-200 hover:bg-white/5 font-semibold flex items-center justify-center gap-2 transition-colors" disabled={submitting}>
+                <Save size={16} /> Save as Draft
+              </button>
+              <button type="submit" onClick={() => setStatus('PUBLISHED')} className="flex-1 px-4 py-2.5 rounded-lg border border-transparent bg-blue-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-blue-500 transition-colors" disabled={submitting}>
+                <Send size={16} /> Publish
+              </button>
+            </div>
+          </div>
+        </form>
       )}
     </main>
   );

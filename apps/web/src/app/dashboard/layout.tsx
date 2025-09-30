@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { API_URL } from "@/lib/api";
-import { LayoutDashboard, BarChart2, Package, ShoppingBag, ClipboardList, MapPin, Home, Menu, X } from "lucide-react";
+import { LayoutDashboard, BarChart2, Package, ShoppingBag, ClipboardList, MapPin, Home, Menu, X, LifeBuoy, User, Shield, LogOut } from "lucide-react";
+import { Menu as HeadlessMenu, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
 import LogoutButton from "@/components/LogoutButton";
+import GlobalHeroBackground from "@/components/ui/global-hero-background";
 
 type Me = { id: string; role: "BUYER"|"VENDOR"|"ADMIN" };
 
@@ -58,38 +61,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    // Override the global layout with a clean admin layout
-    <div className="min-h-screen bg-white text-gray-800">
-      <div className="flex h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-zinc-900 to-black text-zinc-200">
+      <GlobalHeroBackground src="/abstract-bg.jpg" overlayOpacity={0.8} />
+      <div className="flex h-screen relative z-10">
         {/* Mobile sidebar backdrop */}
         {sidebarOpen && (
           <div 
-            className="fixed inset-0 z-20 bg-gray-800/50 lg:hidden" 
+            className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm lg:hidden" 
             onClick={() => setSidebarOpen(false)}
           ></div>
         )}
         
         {/* Sidebar */}
         <aside 
-          className={`fixed inset-y-0 left-0 z-30 w-64 bg-gray-50 border-r border-gray-200 flex flex-col transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          className={`fixed inset-y-0 left-0 z-30 w-64 bg-black/20 backdrop-blur-lg border-r border-white/10 flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:z-auto ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center">
-              <div className="font-bold text-xl text-blue-600">Vendor Panel</div>
+          <div className="p-5 border-b border-white/10 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
+              <LayoutDashboard className="h-6 w-6 text-white" />
             </div>
+            <div className="font-bold text-xl text-white">Vendor Panel</div>
           </div>
           
           <nav className="flex-1 overflow-y-auto p-4">
-            <ul className="space-y-1">
+            <ul className="space-y-1.5">
               {navItems.map((item) => {
                 const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));
                 return (
                   <li key={item.href}>
                     <Link 
-                      href={item.href}
-                      className={`flex items-center px-4 py-2 rounded-md transition-colors ${isActive 
-                        ? 'bg-blue-100 text-blue-700 font-medium' 
-                        : 'text-gray-700 hover:bg-gray-100'}`}
+                      href={item.href} 
+                      className={`group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${isActive 
+                        ? 'bg-gradient-to-r from-blue-500/20 to-purple-600/20 text-white shadow-inner-glow font-medium'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                     >
                       {item.icon}
                       {item.label}
@@ -99,20 +103,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               })}
             </ul>
             
-            <div className="mt-8 pt-4 border-t border-gray-200">
-              <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">Actions</div>
-              <ul className="space-y-1">
+            <div className="mt-auto pt-4 space-y-4">
+              <div className="px-3 py-2 text-xs font-semibold text-zinc-500 uppercase">Actions</div>
+              <ul className="space-y-1.5">
                 <li>
                   <Link 
                     href="/" 
-                    className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                    className="group flex items-center px-3 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                   >
                     <Home className="h-4 w-4 mr-2" />
                     Back to Site
                   </Link>
                 </li>
                 <li>
-                  <LogoutButton />
+                  <LogoutButton classNameOverride="group flex w-full items-center px-3 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors" />
                 </li>
               </ul>
             </div>
@@ -120,40 +124,84 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </aside>
         
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 w-full lg:w-auto">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <header className="bg-white shadow-sm border-b border-gray-200">
-            <div className="px-6 py-4 flex items-center justify-between">
+          <header className="bg-black/10 backdrop-blur-lg border-b border-white/10">
+            <div className="px-6 h-20 flex items-center justify-between">
               <div className="flex items-center">
                 {/* Mobile menu button */}
                 <button 
-                  className="lg:hidden mr-3 p-1.5 rounded-md text-gray-500 hover:bg-gray-100"
+                  className="lg:hidden -ml-2 mr-3 p-2 rounded-full text-zinc-400 hover:bg-white/10 hover:text-white"
                   onClick={() => setSidebarOpen(!sidebarOpen)}
                   aria-label="Toggle sidebar"
                 >
-                  {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                  {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />} 
                 </button>
                 
-                <h1 className="text-xl font-semibold text-gray-800">
+                <h1 className="text-xl font-semibold text-white tracking-wide">
                   {getPageTitle()}
                 </h1>
               </div>
-              <div className="flex items-center space-x-3">
-                <button className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm flex items-center">
-                  <span className="mr-1">Help</span>
+              <div className="flex items-center space-x-4">
+                <button className="group flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors">
+                  <LifeBuoy className="h-4 w-4 text-zinc-400 group-hover:text-white transition-colors" />
+                  <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">Help</span>
                 </button>
-                <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold">
-                  V
-                </div>
+                <HeadlessMenu as="div" className="relative inline-block text-left">
+                  <div>
+                    <HeadlessMenu.Button className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center font-bold text-sm ring-2 ring-offset-2 ring-offset-zinc-900 ring-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75">
+                      V
+                    </HeadlessMenu.Button>
+                  </div>
+                  <Transition
+                    as={Fragment}
+                    enter="transition ease-out duration-100"
+                    enterFrom="transform opacity-0 scale-95"
+                    enterTo="transform opacity-100 scale-100"
+                    leave="transition ease-in duration-75"
+                    leaveFrom="transform opacity-100 scale-100"
+                    leaveTo="transform opacity-0 scale-95"
+                  >
+                    <HeadlessMenu.Items className="absolute right-0 mt-2 w-56 origin-top-right divide-y divide-white/10 rounded-md bg-black/50 backdrop-blur-lg shadow-lg ring-1 ring-white/10 focus:outline-none">
+                      <div className="px-1 py-1 ">
+                        <HeadlessMenu.Item>
+                          {({ active }) => (
+                            <Link href="/dashboard" className={`${active ? 'bg-white/10 text-white' : 'text-zinc-300'} group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
+                              <User className="mr-2 h-5 w-5" />
+                              Profile
+                            </Link>
+                          )}
+                        </HeadlessMenu.Item>
+                        <HeadlessMenu.Item>
+                          {({ active }) => (
+                            <Link href="/dashboard/settings/security" className={`${active ? 'bg-white/10 text-white' : 'text-zinc-300'} group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
+                              <Shield className="mr-2 h-5 w-5" />
+                              Security
+                            </Link>
+                          )}
+                        </HeadlessMenu.Item>
+                      </div>
+                      <div className="px-1 py-1">
+                        <HeadlessMenu.Item>
+                          {({ active }) => (
+                            <LogoutButton classNameOverride={`${active ? 'bg-white/10 text-white' : 'text-zinc-300'} group flex w-full items-center rounded-md px-2 py-2 text-sm`} />
+                          )}
+                        </HeadlessMenu.Item>
+                      </div>
+                    </HeadlessMenu.Items>
+                  </Transition>
+                </HeadlessMenu>
               </div>
             </div>
           </header>
           
           {/* Page content */}
-          <div className="p-6 max-w-7xl mx-auto">
-            {children}
-          </div>
-        </main>
+          <main className="flex-1 overflow-y-auto">
+            <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
     </div>
   );

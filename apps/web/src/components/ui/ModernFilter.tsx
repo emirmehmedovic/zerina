@@ -45,14 +45,20 @@ export default function ModernFilter({
 
   return (
     <motion.div 
-      className="bg-black/30 backdrop-blur-md rounded-2xl overflow-hidden"
+      className="bg-black/30 backdrop-blur-md rounded-2xl overflow-hidden border border-white/10 shadow-xl relative group"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
+      {/* Decorative gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+      
       {/* Header */}
-      <div className="px-6 py-5 border-b border-white/10">
-        <h2 className="text-xl font-medium text-white">{title}</h2>
+      <div className="px-6 py-5 border-b border-white/10 relative">
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <span className="w-1 h-6 bg-gradient-to-b from-purple-400 to-blue-400 rounded-full" />
+          {title}
+        </h2>
       </div>
 
       {/* Tabs */}
@@ -70,7 +76,7 @@ export default function ModernFilter({
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
             {activeTab === tab && (
               <motion.div 
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-400 to-blue-400"
                 layoutId="activeTab"
               />
             )}
