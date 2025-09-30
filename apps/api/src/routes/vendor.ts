@@ -214,7 +214,7 @@ router.get('/analytics/sales', requireAuth, async (req, res) => {
   const productTotals = new Map<string, { qty: number; revenueCents: number }>();
   for (const o of orders) {
     const day = fmt(new Date(o.createdAt));
-    const daySum = o.items.reduce((s, it) => s + it.priceCents * it.quantity, 0);
+    const daySum = o.items.reduce((s: number, it: { priceCents: number; quantity: number; }) => s + it.priceCents * it.quantity, 0);
     seriesMap.set(day, (seriesMap.get(day) || 0) + daySum);
     for (const it of o.items) {
       const cur = productTotals.get(it.productId) || { qty: 0, revenueCents: 0 };
@@ -226,7 +226,7 @@ router.get('/analytics/sales', requireAuth, async (req, res) => {
   const productIds = Array.from(productTotals.keys());
   const products = productIds.length ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, title: true, slug: true } }) : [];
   const topProducts = productIds
-    .map((id) => ({ id, title: products.find((p) => p.id === id)?.title || id, slug: products.find((p) => p.id === id)?.slug || '', qty: productTotals.get(id)!.qty, revenueCents: productTotals.get(id)!.revenueCents }))
+    .map((id) => ({ id, title: products.find((p: { id: string; }) => p.id === id)?.title || id, slug: products.find((p: { id: string; }) => p.id === id)?.slug || '', qty: productTotals.get(id)!.qty, revenueCents: productTotals.get(id)!.revenueCents }))
     .sort((a, b) => b.revenueCents - a.revenueCents)
     .slice(0, 10);
   const series = Array.from(seriesMap.entries()).map(([date, totalCents]) => ({ date, totalCents }));
@@ -245,9 +245,9 @@ router.get('/analytics/kpis', requireAuth, async (req, res) => {
     where: { shopId: shop.id, createdAt: { gte: since } },
     select: { id: true, totalCents: true, items: { select: { quantity: true } } },
   });
-  const revenueCents = orders.reduce((s, o) => s + (o.totalCents || 0), 0);
+  const revenueCents = orders.reduce((s: number, o: { totalCents: number | null; }) => s + (o.totalCents || 0), 0);
   const ordersCount = orders.length;
-  const items = orders.reduce((s, o) => s + o.items.reduce((a, it) => a + it.quantity, 0), 0);
+  const items = orders.reduce((s: number, o: { items: { quantity: number; }[]; }) => s + o.items.reduce((a: number, it: { quantity: number; }) => a + it.quantity, 0), 0);
   const avgOrderValueCents = ordersCount ? Math.round(revenueCents / ordersCount) : 0;
   res.json({ days, revenueCents, orders: ordersCount, items, avgOrderValueCents });
 });
@@ -277,7 +277,7 @@ router.get('/analytics/top-products', requireAuth, async (req, res) => {
   const ids = Array.from(totals.keys());
   const products = ids.length ? await prisma.product.findMany({ where: { id: { in: ids } }, select: { id: true, title: true, slug: true } }) : [];
   const items = ids
-    .map((id) => ({ id, title: products.find((p) => p.id === id)?.title || id, slug: products.find((p) => p.id === id)?.slug || '', qty: totals.get(id)!.qty, revenueCents: totals.get(id)!.revenueCents }))
+    .map((id) => ({ id, title: products.find((p: { id: string; }) => p.id === id)?.title || id, slug: products.find((p: { id: string; }) => p.id === id)?.slug || '', qty: totals.get(id)!.qty, revenueCents: totals.get(id)!.revenueCents }))
     .sort((a, b) => b.revenueCents - a.revenueCents)
     .slice(0, limit);
   res.json({ items });
@@ -541,7 +541,7 @@ router.get('/analytics/projections', requireAuth, async (req, res) => {
     const day = fmt(new Date(order.createdAt));
     const entry = dailyData.get(day) || { orders: 0, items: 0, revenueCents: 0 };
     entry.orders += 1;
-    entry.items += order.items.reduce((sum, item) => sum + item.quantity, 0);
+    entry.items += order.items.reduce((sum: number, item: { quantity: number; }) => sum + item.quantity, 0);
     entry.revenueCents += order.totalCents;
     dailyData.set(day, entry);
   }
@@ -566,8 +566,8 @@ router.get('/analytics/projections', requireAuth, async (req, res) => {
     const firstPeriod = dailySeries.slice(0, Math.floor(dailySeries.length / 2));
     const secondPeriod = dailySeries.slice(Math.floor(dailySeries.length / 2));
     
-    const firstAvg = firstPeriod.reduce((sum, day) => sum + day.revenueCents, 0) / firstPeriod.length;
-    const secondAvg = secondPeriod.reduce((sum, day) => sum + day.revenueCents, 0) / secondPeriod.length;
+    const firstAvg = firstPeriod.reduce((sum: number, day: { revenueCents: number; }) => sum + day.revenueCents, 0) / firstPeriod.length;
+    const secondAvg = secondPeriod.reduce((sum: number, day: { revenueCents: number; }) => sum + day.revenueCents, 0) / secondPeriod.length;
     
     if (firstAvg > 0) {
       growthRate = (secondAvg - firstAvg) / firstAvg;

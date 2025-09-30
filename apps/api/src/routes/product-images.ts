@@ -175,7 +175,7 @@ router.post('/:id/images/cover', requireAuth, requireRole('VENDOR'), async (req,
   // Reorder images to put cover first
   const newOrder = [
     imageId,
-    ...images.filter(img => img.id !== imageId).map(img => img.id),
+    ...images.filter((img: { id: string }) => img.id !== imageId).map((img: { id: string }) => img.id),
   ];
   
   // Update positions

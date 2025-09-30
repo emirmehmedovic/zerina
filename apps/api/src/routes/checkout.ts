@@ -41,7 +41,7 @@ async function validateItems(items: Array<{ productId: string; variantId?: strin
     let price = product.priceCents;
     let stock = product.stock;
     if (it.variantId) {
-      const variant = product.variants.find((v) => v.id === it.variantId);
+      const variant = product.variants.find((v: { id: string }) => v.id === it.variantId);
       if (!variant) throw { error: 'invalid_variant', productId: it.productId, variantId: it.variantId };
       price = variant.priceCents;
       stock = variant.stock;

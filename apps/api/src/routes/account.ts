@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { z } from 'zod';
 import { prisma } from '../prisma';
@@ -23,7 +23,14 @@ router.patch('/password', requireAuth, async (req, res) => {
     }
 
     const { currentPassword, newPassword } = validation.data;
-    const user = (req as any).user as { sub: string };
+    interface AuthenticatedRequest extends Request {
+  user?: { sub: string };
+}
+
+const user = (req as AuthenticatedRequest).user;
+    if (!user) {
+      return res.status(401).json({ error: 'User not authenticated.' });
+    }
 
     const dbUser = await prisma.user.findUnique({ where: { id: user.sub } });
     if (!dbUser || !dbUser.passwordHash) {

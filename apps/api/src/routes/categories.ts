@@ -18,7 +18,7 @@ function slugifyName(name: string) {
 router.get('/:slug/products', async (req, res) => {
   const { slug } = req.params;
   const categories = await prisma.category.findMany();
-  const category = categories.find((c) => slugifyName(c.name) === slug);
+  const category = categories.find((c: { name: string }) => slugifyName(c.name) === slug);
   if (!category) return res.json({ items: [], total: 0 });
 
   const { take = '20', skip = '0' } = req.query as Record<string, string>;

@@ -25,7 +25,7 @@ router.get('/shops', async (req, res) => {
     },
   });
 
-  const shopIds = shops.map(s => s.id);
+  const shopIds = shops.map((s: { id: string }) => s.id);
 
   const revenueByShop = await prisma.order.groupBy({
     by: ['shopId'],
@@ -33,9 +33,9 @@ router.get('/shops', async (req, res) => {
     _sum: { totalCents: true },
   });
 
-  const revenueMap = new Map(revenueByShop.map(r => [r.shopId, r._sum.totalCents || 0]));
+  const revenueMap = new Map(revenueByShop.map((r: { shopId: string; _sum: { totalCents: number | null } }) => [r.shopId, r._sum.totalCents || 0]));
 
-  const results = shops.map(s => ({
+  const results = shops.map((s: { id: string; _count: { orders: number; products: number; }; name: string; }) => ({
     ...s,
     revenue: revenueMap.get(s.id) || 0,
     orderCount: s._count.orders,
@@ -43,7 +43,7 @@ router.get('/shops', async (req, res) => {
   }));
 
   // Manual sort because Prisma can't sort by aggregated relations directly yet
-  results.sort((a, b) => {
+  results.sort((a: { revenue: number; orderCount: number; productCount: number; name: string; }, b: { revenue: number; orderCount: number; productCount: number; name: string; }) => {
     const dir = sortDir === 'asc' ? 1 : -1;
     if (sortBy === 'revenue') return (a.revenue - b.revenue) * dir;
     if (sortBy === 'orders') return (a.orderCount - b.orderCount) * dir;
