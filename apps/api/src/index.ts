@@ -33,24 +33,10 @@ const app = express();
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
-app.use(
-  cors({
-    origin: ENV.corsOrigin,
-    credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-  })
-);
-// Handle CORS preflight for all routes
-app.options(
-  '*',
-  cors({
-    origin: ENV.corsOrigin,
-    credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-  })
-);
+app.use(cors({
+  origin: ENV.corsOrigin,
+  credentials: true,
+}));
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
