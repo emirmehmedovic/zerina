@@ -26,6 +26,7 @@ import productVariantsRouter from './routes/product-variants';
 import { csrfProtect } from './middleware/csrf';
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Configure Helmet to allow cross-origin embedding of static images
 // This sets the Cross-Origin-Resource-Policy header to "cross-origin"
