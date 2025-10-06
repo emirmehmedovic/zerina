@@ -44,6 +44,8 @@ export default function ProductsClient({ initialItems, initialTotal, categories,
   const [total, setTotal] = useState<number>(initialTotal ?? initialItems.length);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [sortBy, setSortBy] = useState<string>("relevance");
+  const [density, setDensity] = useState<'comfortable'|'compact'>('comfortable');
 
   // Handle category change
   const handleCategoryChange = async (id: string) => {
@@ -81,6 +83,7 @@ export default function ProductsClient({ initialItems, initialTotal, categories,
       if (catId) url.searchParams.set('categoryId', catId);
       if (min > 0) url.searchParams.set('minPrice', min.toString());
       if (max < 1000) url.searchParams.set('maxPrice', max.toString());
+      if (sortBy && sortBy !== 'relevance') url.searchParams.set('sort', sortBy);
       
       // Note: Backend would need to support these parameters
       // This is just for demonstration
@@ -116,6 +119,7 @@ export default function ProductsClient({ initialItems, initialTotal, categories,
       if (ratings.length > 0) {
         url.searchParams.set('minRating', Math.min(...ratings).toString());
       }
+      if (sortBy && sortBy !== 'relevance') url.searchParams.set('sort', sortBy);
       
       const res = await fetch(url.toString(), { cache: 'no-store' });
       if (res.ok) {
@@ -149,11 +153,114 @@ export default function ProductsClient({ initialItems, initialTotal, categories,
 
   return (
     <>
+      {/* Category pills (desktop) */}
+      <div className="hidden lg:flex items-center gap-2 mb-4 flex-wrap">
+        <button
+          onClick={() => handleCategoryChange("")}
+          className={`px-3 py-1.5 rounded-full text-sm border transition-all ${
+            categoryId === ''
+              ? 'bg-rose-100/70 text-amber-900 border-rose-200/80'
+              : 'bg-white/70 text-gray-800 border-gray-200/80 hover:bg-white'
+          }`}
+        >
+          All
+        </button>
+        {categories.slice(0, 12).map((c) => (
+          <button
+            key={c.id}
+            onClick={() => handleCategoryChange(c.id)}
+            className={`px-3 py-1.5 rounded-full text-sm border transition-all ${
+              categoryId === c.id
+                ? 'bg-rose-100/70 text-amber-900 border-rose-200/80'
+                : 'bg-white/70 text-gray-800 border-gray-200/80 hover:bg-white'
+            }`}
+          >
+            {c.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Active filters + sort + view controls */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Results count */}
+          <span className="text-sm text-gray-600 mr-2">{items.length} of {total} results</span>
+          {/* Selected category chip */}
+          {categoryId && (
+            <button
+              onClick={() => handleCategoryChange("")}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-rose-100/70 text-amber-900 border border-rose-200/80"
+            >
+              Category: {categories.find(c=>c.id===categoryId)?.name || 'Selected'}
+              <span aria-hidden>×</span>
+            </button>
+          )}
+          {/* Price chip */}
+          {(minPrice > 0 || maxPrice < 1000) && (
+            <button
+              onClick={() => { setMinPrice(0); setMaxPrice(1000); }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-white/70 text-gray-800 border border-gray-200/80"
+            >
+              Price: ${minPrice} – ${maxPrice}
+              <span aria-hidden>×</span>
+            </button>
+          )}
+          {/* Ratings chips */}
+          {ratings.map(r => (
+            <button
+              key={r}
+              onClick={() => handleRatingChange(r)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-amber-100/70 text-amber-900 border border-amber-200/80"
+            >
+              {r}+ stars
+              <span aria-hidden>×</span>
+            </button>
+          ))}
+          {(categoryId || ratings.length>0 || minPrice>0 || maxPrice<1000) && (
+            <button
+              onClick={async () => { setCategoryId(""); setRatings([]); setMinPrice(0); setMaxPrice(1000); await fetchProducts("", 0, 1000, []); }}
+              className="text-sm text-gray-600 hover:text-gray-800 underline underline-offset-4"
+            >
+              Reset all
+            </button>
+          )}
+        </div>
+
+        {/* Sort + density controls */}
+        <div className="flex items-center gap-3 self-end md:self-auto">
+          <label className="text-sm text-gray-600">Sort by</label>
+          <select
+            value={sortBy}
+            onChange={(e) => { setSortBy(e.target.value); fetchProducts(categoryId, minPrice, maxPrice, ratings); }}
+            className="text-sm rounded-full bg-white/80 border border-gray-200/80 px-3 py-1.5 text-gray-800"
+          >
+            <option value="relevance">Relevance</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="newest">Newest</option>
+          </select>
+
+          <div className="hidden sm:flex items-center gap-1">
+            <button
+              onClick={() => setDensity('comfortable')}
+              className={`px-3 py-1.5 rounded-full text-sm border ${density==='comfortable' ? 'bg-rose-100/70 text-amber-900 border-rose-200/80' : 'bg-white/80 text-gray-800 border-gray-200/80 hover:bg-white'}`}
+            >
+              Comfortable
+            </button>
+            <button
+              onClick={() => setDensity('compact')}
+              className={`px-3 py-1.5 rounded-full text-sm border ${density==='compact' ? 'bg-rose-100/70 text-amber-900 border-rose-200/80' : 'bg-white/80 text-gray-800 border-gray-200/80 hover:bg-white'}`}
+            >
+              Compact
+            </button>
+          </div>
+        </div>
+      </div>
       {/* Mobile filter button */}
       <div className="flex justify-between items-center mb-4 lg:hidden">
         <div className="flex gap-2 flex-wrap">
           <motion.button
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm ${!categoryId ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-white/10 text-white border border-white/20'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm ${!categoryId ? 'bg-rose-100/70 text-amber-900 border border-rose-200/80' : 'bg-white/70 text-gray-800 border border-gray-200/80'}`}
             onClick={() => handleCategoryChange("")}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
@@ -165,7 +272,7 @@ export default function ProductsClient({ initialItems, initialTotal, categories,
           {categories.slice(0, 2).map((c) => (
             <motion.button
               key={c.id}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm ${categoryId===c.id ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-white/10 text-white border border-white/20'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm ${categoryId===c.id ? 'bg-rose-100/70 text-amber-900 border border-rose-200/80' : 'bg-white/70 text-gray-800 border border-gray-200/80'}`}
               onClick={() => handleCategoryChange(c.id)}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
@@ -176,7 +283,7 @@ export default function ProductsClient({ initialItems, initialTotal, categories,
           
           {/* Show more filters button */}
           <motion.button
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-gradient-to-r from-blue-500 to-purple-500 text-white"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-white/80 border border-gray-200/80 text-gray-900"
             onClick={() => setMobileFilterOpen(true)}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
@@ -259,7 +366,7 @@ export default function ProductsClient({ initialItems, initialTotal, categories,
             </motion.p>
           ) : (
             <motion.div 
-              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+              className={`grid grid-cols-1 ${density==='comfortable' ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} gap-6`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ staggerChildren: 0.1 }}

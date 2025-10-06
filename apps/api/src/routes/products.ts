@@ -30,16 +30,24 @@ const productsPublicQuerySchema = z.object({
   skip: z.string().transform((v) => Number(v || '0')).optional(),
   categoryId: z.string().optional(),
   categoryIds: z.string().optional(),
+  onSale: z.string().optional(),
+  latest: z.string().optional(),
 });
 
 router.get('/', validateQuery(productsPublicQuerySchema), async (req, res) => {
-  const { q, status, take = 20, skip = 0, categoryId, categoryIds } = (req as any).validated as any;
+  const { q, status, take = 20, skip = 0, categoryId, categoryIds, onSale, latest } = (req as any).validated as any;
   const where: any = {};
   if (q) where.OR = [
     { title: { contains: q, mode: 'insensitive' } },
     { description: { contains: q, mode: 'insensitive' } },
   ];
   if (status) where.status = status as any;
+  
+  // Filter for products on sale
+  if (onSale === 'true' || onSale === '1') {
+    where.isOnSale = true;
+  }
+  
   // Category filtering
   let catIds: string[] = [];
   if (categoryIds) catIds = categoryIds.split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -47,10 +55,17 @@ router.get('/', validateQuery(productsPublicQuerySchema), async (req, res) => {
   if (catIds.length > 0) {
     where.categories = { some: { categoryId: { in: catIds } } };
   }
+  
+  // Determine order by
+  let orderBy: any = { createdAt: 'desc' };
+  if (latest === 'true' || latest === '1') {
+    orderBy = { createdAt: 'desc' };
+  }
+  
   const [items, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       take: Math.max(1, Math.min(100, Number(take) || 20)),
       skip: Math.max(0, Number(skip) || 0),
       select: {
@@ -58,6 +73,9 @@ router.get('/', validateQuery(productsPublicQuerySchema), async (req, res) => {
         title: true,
         slug: true,
         priceCents: true,
+        originalPriceCents: true,
+        discountPercent: true,
+        isOnSale: true,
         currency: true,
         shop: { select: { id: true, name: true, slug: true } },
         images: { orderBy: { position: 'asc' }, take: 1 },

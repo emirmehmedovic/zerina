@@ -117,8 +117,8 @@ export default function HeaderAuth() {
   if (!me) {
     return (
       <div className="flex items-center gap-2">
-        <Link href="/login" className="inline-flex items-center h-9 px-4 rounded-full bg-white/20 hover:bg-white/30 text-white border border-white/30 transition">Sign in</Link>
-        <Link href="/register" className="inline-flex items-center h-9 px-4 rounded-full bg-white text-zinc-900 hover:bg-white/90 border border-white/80 transition">Sign up</Link>
+        <Link href="/login" className="inline-flex items-center h-9 px-4 rounded-full bg-white/20 hover:bg-white/30 text-amber-900 border border-white/30 transition">Sign in</Link>
+        <Link href="/register" className="inline-flex items-center h-9 px-4 rounded-full bg-amber-900 hover:bg-amber-950 text-white border border-amber-900 transition">Sign up</Link>
       </div>
     );
   }
@@ -129,12 +129,12 @@ export default function HeaderAuth() {
         type="button"
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-2 text-sm text-white"
+        className="inline-flex items-center gap-2 text-sm text-amber-900"
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <Avatar name={me.name} email={me.email} />
-        <span className="hidden sm:inline text-white/90 max-w-[140px] truncate">{me.name ?? me.email}</span>
+        <span className="hidden sm:inline text-amber-900 max-w-[140px] truncate">{me.name ?? me.email}</span>
       </button>
 
       {open && coords && createPortal(
@@ -144,48 +144,48 @@ export default function HeaderAuth() {
           style={{ position: 'fixed', top: coords.top, left: coords.left }}
           role="menu"
         >
-          <div className="flex items-center gap-3 pb-3 border-b border-light-glass-border">
+          <div className="flex items-center gap-3 pb-3 border-b border-light-glass-border text-amber-900">
             <Avatar name={me.name} email={me.email} />
             <div className="min-w-0">
               <div className="text-sm font-medium truncate">{me.name ?? me.email}</div>
-              <div className="text-xs text-light-muted dark:text-dark-muted capitalize">{me.role.toLowerCase()}</div>
+              <div className="text-xs text-amber-800 capitalize">{me.role.toLowerCase()}</div>
             </div>
           </div>
 
           <div className="py-2 text-sm">
             {me.role === 'VENDOR' && (
               <>
-                <Link href="/dashboard/shop" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded hover:bg-white/30 dark:hover:bg-zinc-800/30">
+                <Link href="/dashboard/shop" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
                   <LayoutDashboard className="h-4 w-4" /> Dashboard
                 </Link>
                 <Link href="/dashboard/products" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded hover:bg-white/30 dark:hover:bg-zinc-800/30">
-                  <ShoppingBag className="h-4 w-4" /> My products
+                  <ShoppingBag className="h-4 w-4" /> <span className="text-amber-900">My products</span>
                 </Link>
-                <Link href="/dashboard/analytics" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded hover:bg-white/30 dark:hover:bg-zinc-800/30">
+                <Link href="/dashboard/analytics" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
                   <Shield className="h-4 w-4" /> Analytics
                 </Link>
               </>
             )}
             {me.role === 'ADMIN' && (
-              <Link href="/admin/shops" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded hover:bg-white/30 dark:hover:bg-zinc-800/30">
+              <Link href="/admin/shops" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
                 <Shield className="h-4 w-4" /> Admin
               </Link>
             )}
-            <Link href="/dashboard/orders" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded hover:bg-white/30 dark:hover:bg-zinc-800/30">
+            <Link href="/dashboard/orders" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
               <ShoppingBag className="h-4 w-4" /> Orders
             </Link>
-            <Link href="/dashboard/addresses" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded hover:bg-white/30 dark:hover:bg-zinc-800/30">
+            <Link href="/dashboard/addresses" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
               <MapPin className="h-4 w-4" /> Addresses
             </Link>
-            <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded hover:bg-white/30 dark:hover:bg-zinc-800/30">
+            <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
               <User className="h-4 w-4" /> Profile
             </Link>
-            <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded hover:bg-white/30 dark:hover:bg-zinc-800/30">
+            <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
               <Settings className="h-4 w-4" /> Settings
             </Link>
           </div>
 
-          <button onClick={logout} className="w-full inline-flex items-center gap-2 justify-center h-9 rounded-md bg-white/20 hover:bg-white/30 border border-white/30 text-white mt-1">
+          <button onClick={logout} className="w-full inline-flex items-center gap-2 justify-center h-9 rounded-md bg-white/20 hover:bg-white/30 border border-white/30 text-amber-900 mt-1">
             <LogOut className="h-4 w-4" /> Logout
           </button>
         </div>,

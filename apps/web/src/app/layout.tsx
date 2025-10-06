@@ -23,8 +23,8 @@ const geistMono = Geist_Mono({
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-light-background dark:bg-dark-background text-light-text dark:text-dark-text`}>
+    <html lang="en" suppressHydrationWarning className="force-light">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-light-background text-light-text`}>
         <CartProvider>
           <ToastProvider>
             <div>

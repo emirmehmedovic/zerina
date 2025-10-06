@@ -8,6 +8,7 @@ interface LiquidGlassProps {
   style?: CSSProperties;
   cornerRadius?: number;
   padding?: string;
+  tint?: 'blue' | 'rose';
 }
 
 export default function LiquidGlass({
@@ -16,7 +17,11 @@ export default function LiquidGlass({
   style = {},
   cornerRadius = 24,
   padding = "0",
+  tint = 'blue',
 }: LiquidGlassProps) {
+  const background = tint === 'rose'
+    ? 'linear-gradient(135deg, rgba(255, 182, 193, 0.25) 0%, rgba(255, 182, 193, 0.08) 30%, rgba(255, 255, 255, 0.02) 60%, rgba(0, 0, 0, 0.15) 100%)'
+    : 'linear-gradient(135deg, rgba(0, 122, 255, 0.3) 0%, rgba(0, 0, 0, 0.4) 100%)';
   return (
     <div
       className={`relative ${className}`}
@@ -43,7 +48,7 @@ export default function LiquidGlass({
             position: "absolute",
             inset: "0",
             backdropFilter: `blur(12px) saturate(180%)`,
-            background: "linear-gradient(135deg, rgba(0, 122, 255, 0.3) 0%, rgba(0, 0, 0, 0.4) 100%)",
+            background,
             borderTop: "1px solid rgba(255, 255, 255, 0.3)",
             borderLeft: "1px solid rgba(255, 255, 255, 0.3)",
             borderRight: "1px solid rgba(255, 255, 255, 0.1)",

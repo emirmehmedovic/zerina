@@ -69,6 +69,10 @@ model Shop {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
+  // Optional cover fields
+  coverUrl              String?
+  coverImageStorageKey  String?
+
   owner         User       @relation(fields: [ownerId], references: [id])
   products      Product[]
   orders        Order[]
@@ -78,18 +82,21 @@ model Shop {
 }
 
 model Product {
-  id           String        @id @default(cuid())
-  shopId       String
-  title        String
-  slug         String
-  description  String        @db.Text
-  priceCents   Int
-  currency     String        @default("EUR")
-  sku          String?
-  stock        Int           @default(0)
-  status       ProductStatus @default(DRAFT)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  shopId            String
+  title             String
+  slug              String
+  description       String        @db.Text
+  priceCents        Int
+  currency          String        @default("EUR")
+  sku               String?
+  stock             Int           @default(0)
+  status            ProductStatus @default(DRAFT)
+  discountPercent   Int?          @default(0)
+  originalPriceCents Int?
+  isOnSale          Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   shop         Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
   variants     ProductVariant[]
@@ -105,6 +112,7 @@ model Product {
   @@index([shopId, createdAt])
   // Basic index for title searches (note: for contains queries consider pg_trgm GIN in a future migration)
   @@index([title])
+  @@index([isOnSale])
 }
 
 model ProductVariant {

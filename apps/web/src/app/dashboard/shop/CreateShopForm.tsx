@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { API_URL } from "@/lib/api";
 import { Shop } from "@/lib/types";
-import { Terminal } from "lucide-react";
+ 
 
 interface CreateShopFormProps {
   onShopCreated: (shop: Shop) => void;
@@ -42,7 +42,7 @@ export default function CreateShopForm({ onShopCreated }: CreateShopFormProps) {
   return (
     <div className="card-base card-glass p-6 md:p-8 max-w-2xl mx-auto">
       <h2 className="text-2xl font-bold mb-2">Create Your Shop</h2>
-      <p className="text-light-muted dark:text-dark-muted mb-6">You don't have a shop yet. Fill out the form below to get started.</p>
+      <p className="text-light-muted dark:text-dark-muted mb-6">You don&apos;t have a shop yet. Fill out the form below to get started.</p>
       
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">

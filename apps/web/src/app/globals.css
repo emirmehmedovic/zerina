@@ -49,6 +49,41 @@
   }
 }
 
+/* Force light theme background regardless of system setting */
+html.force-light body {
+  background: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 182, 193, 0.06) 2px,
+      rgba(255, 182, 193, 0.06) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 182, 193, 0.06) 2px,
+      rgba(255, 182, 193, 0.06) 4px
+    ),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 182, 193, 0.10) 25%,
+      rgba(241, 245, 249, 0.18) 50%,
+      rgba(255, 182, 193, 0.10) 75%,
+      rgba(255, 255, 255, 0.08) 100%
+    ),
+    radial-gradient(
+      ellipse at 50% 20%,
+      rgba(255, 182, 193, 0.16) 0%,
+      rgba(255, 255, 255, 0.08) 40%,
+      transparent 70%
+    ),
+    var(--color-light-background);
+  color: var(--color-light-text);
+}
+
 /* Base colors for body + gradient background for glass to shine */
 :root {
   --background: var(--color-light-background);
@@ -63,11 +98,83 @@
 }
 
 body {
-  /* Make body transparent to show global fixed background image */
-  background: transparent;
+  /* Subtle white gradient with texture as base */
+  background: 
+    /* Noise texture layer */
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 182, 193, 0.05) 2px,
+      rgba(255, 182, 193, 0.05) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 182, 193, 0.05) 2px,
+      rgba(255, 182, 193, 0.05) 4px
+    ),
+    /* Diagonal gradient */
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 182, 193, 0.06) 20%,
+      rgba(241, 245, 249, 0.15) 50%,
+      rgba(255, 182, 193, 0.06) 80%,
+      rgba(255, 255, 255, 0.06) 100%
+    ),
+    /* Radial glow */
+    radial-gradient(
+      ellipse at 50% 20%,
+      rgba(255, 255, 255, 0.15) 0%,
+      rgba(255, 255, 255, 0.05) 40%,
+      transparent 70%
+    ),
+    /* Base color */
+    var(--color-light-background);
   color: var(--foreground);
   font-family: var(--font-sans);
   min-height: 100vh;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: 
+      /* Noise texture layer for dark mode */
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(255, 255, 255, 0.015) 2px,
+        rgba(255, 255, 255, 0.015) 4px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 2px,
+        rgba(255, 255, 255, 0.015) 2px,
+        rgba(255, 255, 255, 0.015) 4px
+      ),
+      /* Diagonal gradient for dark mode */
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.02) 0%,
+        rgba(248, 250, 252, 0.04) 25%,
+        rgba(241, 245, 249, 0.06) 50%,
+        rgba(248, 250, 252, 0.04) 75%,
+        rgba(255, 255, 255, 0.02) 100%
+      ),
+      /* Radial glow for dark mode */
+      radial-gradient(
+        ellipse at 50% 20%,
+        rgba(255, 255, 255, 0.06) 0%,
+        rgba(255, 255, 255, 0.02) 40%,
+        transparent 70%
+      ),
+      /* Base dark color */
+      var(--color-dark-background);
+  }
 }
 
 /* Aurora animated background layer */
@@ -127,4 +234,37 @@ body {
 /* Primary button (opaque for accessibility) */
 .btn-primary {
   @apply bg-light-accent text-white font-medium py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-all;
+}
+
+/* Custom scrollbar styles */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Custom scrollbar for horizontal scroll */
+.scrollbar-custom {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 53, 15, 0.3) transparent;
+}
+
+.scrollbar-custom::-webkit-scrollbar {
+  height: 6px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background-color: rgba(120, 53, 15, 0.3);
+  border-radius: 3px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(120, 53, 15, 0.5);
 }

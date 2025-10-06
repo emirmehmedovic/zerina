@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import HeroLiquidGlass from "./ui/HeroLiquidGlass";
-import StaticImage from "./StaticImage";
-import ProductQuickView from "./ProductQuickView";
-import { motion } from "framer-motion";
-import { Eye } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { API_URL } from "@/lib/api";
+
+import { Store } from "lucide-react";
+import AddToCartButton from "./AddToCartButton";
 
 interface ProductCardProps {
   product: {
@@ -15,76 +15,107 @@ interface ProductCardProps {
     priceCents: number;
     currency: string;
     images?: { storageKey: string }[];
+    isOnSale?: boolean;
+    originalPriceCents?: number;
+    shop?: { name: string };
   };
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const [quickViewOpen, setQuickViewOpen] = useState(false);
+  // Get image URL
+  const storageKey = product.images?.[0]?.storageKey || "";
+  let imageUrl = "/placeholder-product.svg";
+  
+  if (storageKey) {
+    if (storageKey.startsWith("/uploads/")) {
+      imageUrl = `${API_URL}${storageKey}`;
+    } else if (storageKey.startsWith("uploads/")) {
+      imageUrl = `${API_URL}/${storageKey}`;
+    } else {
+      imageUrl = `${API_URL}/uploads/${storageKey}`;
+    }
+  }
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      whileHover={{ scale: 1.03 }}
-      className="h-full"
-    >
-      <HeroLiquidGlass className="w-full h-full" padding="0" cornerRadius={24}>
-        <div className="p-5 flex flex-col h-full">
-          {/* Image */}
-          <div className="relative mb-4 overflow-hidden rounded-lg group">
-            {product.images && product.images.length > 0 ? (
-              <StaticImage
-                fileName={product.images[0].storageKey}
-                alt={product.title}
-                className="h-48 w-full object-cover transition-transform duration-500 hover:scale-110"
-              />
-            ) : (
-              <div className="h-48 bg-light-muted/10 dark:bg-dark-muted/10 rounded-lg"/>
-            )}
-            
-            {/* Quick view button (appears on hover) */}
-            <button
-              onClick={() => setQuickViewOpen(true)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-              aria-label="Quick view"
-            >
-              <div className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full text-white text-sm font-medium">
-                <Eye className="w-4 h-4" />
-                Quick View
-              </div>
-            </button>
-            
-            {/* Price tag */}
-            <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full text-white text-sm font-medium">
-              {(product.priceCents / 100).toFixed(2)} {product.currency}
-            </div>
+    <Link href={`/products/${product.slug}`} className="group block">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-50/30 via-white/40 to-amber-50/30 backdrop-blur-lg border border-white/20 shadow-sm transition-all duration-300 hover:shadow-lg hover:border-white/30 h-full flex flex-col">
+        {/* Image Container */}
+        <div className="relative h-[280px] overflow-hidden p-2 sm:p-3">
+          {/* Artisan frame */}
+          <div className="absolute inset-0 -z-10 rounded-2xl bg-gradient-to-br from-white/70 via-rose-50/50 to-amber-50/50 border border-white/30" />
+
+          {/* Rounded image wrapper */}
+          <div className="relative h-full w-full overflow-hidden rounded-xl">
+            <Image
+              src={imageUrl}
+              alt={product.title}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              className="object-cover will-change-transform group-hover:scale-[1.03] transition-transform duration-500 ease-in-out"
+            />
+            {/* Soft vignette on hover */}
+            <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-t from-black/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            {/* Inner ring for handcrafted feel */}
+            <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/40" />
           </div>
-          
-          {/* Content */}
-          <div className="flex-1 flex flex-col">
-            <h3 className="text-lg font-semibold text-zinc-100 mb-2">{product.title}</h3>
-            
-            <div className="mt-auto pt-4">
-              <a 
-                href={`/products/${product.slug}`}
-                className="inline-flex items-center justify-center w-full py-2 px-4 bg-white/20 hover:bg-white/30 transition-colors rounded-full text-white text-sm font-medium"
-              >
-                View Details
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </a>
+
+          {product.isOnSale && (
+            <div className="absolute top-3 left-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-md">
+              Sale
             </div>
+          )}
+        </div>
+
+        {/* Product Info */}
+        <div className="p-4 flex-1 flex flex-col">
+          {/* Subtle top divider */}
+          <div className="h-px bg-gradient-to-r from-transparent via-rose-100/60 to-transparent mb-3" />
+
+          <h3 className="text-[15px] font-semibold tracking-tight text-gray-800 mb-1.5 line-clamp-2 group-hover:text-gray-900 transition-colors">
+            {product.title}
+          </h3>
+          {product.shop?.name && (
+            <div className="inline-flex items-center gap-1.5 text-amber-900/80 bg-amber-50/60 border border-amber-100/70 rounded-full px-2 py-0.5 mb-3">
+                <Store className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">{product.shop.name}</span>
+            </div>
+          )}
+          <div className="mt-auto flex items-end justify-between">
+            <div className="flex items-center gap-2">
+                <span className="text-xl leading-none font-bold text-gray-900 tabular-nums">
+                    ${(product.priceCents / 100).toFixed(2)}
+                </span>
+                <span className="text-[11px] leading-none uppercase tracking-wide text-amber-900/70 bg-white/70 border border-rose-100/70 rounded px-1.5 py-0.5 align-middle">
+                  {product.currency}
+                </span>
+                {product.isOnSale && product.originalPriceCents && (
+                  <span className="text-xs text-gray-600 line-through bg-gray-50/80 border border-gray-200/70 rounded px-1.5 py-0.5">
+                    ${(product.originalPriceCents / 100).toFixed(2)}
+                  </span>
+                )}
+            </div>
+            {product.isOnSale && product.originalPriceCents && product.originalPriceCents > product.priceCents && (
+              <span className="text-[11px] font-semibold text-rose-700 bg-rose-100/80 border border-rose-200/70 rounded-full px-2 py-0.5">
+                -{Math.round(((product.originalPriceCents - product.priceCents) / product.originalPriceCents) * 100)}%
+              </span>
+            )}
+          </div>
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 translate-y-2 group-hover:translate-y-0 mt-2">
+            <AddToCartButton 
+                product={{
+                    productId: product.id,
+                    title: product.title,
+                    slug: product.slug,
+                    priceCents: product.priceCents,
+                    currency: product.currency,
+                    image: imageUrl
+                }}
+                variant="soft"
+                className="w-full !py-2 !text-sm"
+            />
           </div>
         </div>
-      </HeroLiquidGlass>
-      
-      {/* Quick View Modal */}
-      <ProductQuickView
-        productId={product.id}
-        isOpen={quickViewOpen}
-        onClose={() => setQuickViewOpen(false)}
-      />
-    </motion.div>
+      </div>
+    </Link>
   );
 }

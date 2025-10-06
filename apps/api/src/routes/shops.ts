@@ -39,7 +39,7 @@ router.post('/', requireAuth, requireRole('VENDOR'), async (req, res) => {
       description: parsed.data.description,
       slug,
     },
-    select: { id: true, name: true, slug: true, description: true, status: true },
+    select: { id: true, name: true, slug: true, description: true, status: true, coverUrl: true, coverImageStorageKey: true },
   });
   res.status(201).json(shop);
 });
@@ -54,7 +54,7 @@ router.get('/public', async (req, res) => {
       orderBy: { createdAt: 'desc' },
       take,
       skip,
-      select: { id: true, name: true, slug: true, description: true, status: true },
+      select: { id: true, name: true, slug: true, description: true, status: true, coverUrl: true, coverImageStorageKey: true },
     }),
     prisma.shop.count({ where: { status: 'ACTIVE' } }),
   ]);
@@ -69,7 +69,13 @@ router.patch('/:id', requireAuth, requireRole('VENDOR', 'ADMIN'), async (req, re
   if (!shop) return res.status(404).json({ error: 'not_found' });
   if (user.role !== 'ADMIN' && shop.ownerId !== user.sub) return res.status(403).json({ error: 'forbidden' });
 
-  const schema = z.object({ name: z.string().min(3).max(100).optional(), description: z.string().max(2000).optional() });
+  const schema = z.object({ 
+    name: z.string().min(3).max(100).optional(), 
+    description: z.string().max(2000).optional(),
+    coverUrl: z.string().url().nullable().optional(),
+    coverImageStorageKey: z.string().min(1).nullable().optional(),
+    coverImage: z.object({ storageKey: z.string().min(1) }).optional(),
+  });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
 
@@ -79,15 +85,27 @@ router.patch('/:id', requireAuth, requireRole('VENDOR', 'ADMIN'), async (req, re
     data.slug = await uniqueSlug(parsed.data.name);
   }
   if (parsed.data.description !== undefined) data.description = parsed.data.description;
+  // Cover fields
+  if (parsed.data.coverUrl !== undefined) {
+    data.coverUrl = parsed.data.coverUrl;
+    if (parsed.data.coverUrl) {
+      data.coverImageStorageKey = null;
+    }
+  }
+  const storageKey = parsed.data.coverImage?.storageKey ?? parsed.data.coverImageStorageKey ?? null;
+  if (storageKey !== null && storageKey !== undefined) {
+    data.coverImageStorageKey = storageKey;
+    if (storageKey) data.coverUrl = null;
+  }
 
-  const updated = await prisma.shop.update({ where: { id }, data, select: { id: true, name: true, slug: true, description: true, status: true } });
+  const updated = await prisma.shop.update({ where: { id }, data, select: { id: true, name: true, slug: true, description: true, status: true, coverUrl: true, coverImageStorageKey: true } });
   res.json(updated);
 });
 
 // GET /api/v1/shops/mine — retrieve current user's shop
 router.get('/mine', requireAuth, async (req, res) => {
   const user = (req as any).user as { sub: string };
-  const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true, name: true, slug: true, description: true, status: true } });
+  const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true, name: true, slug: true, description: true, status: true, coverUrl: true, coverImageStorageKey: true } });
   if (!shop) return res.status(404).json({ error: 'not_found' });
   res.json(shop);
 });
@@ -174,6 +192,8 @@ router.get('/:slug', async (req, res) => {
       slug: true,
       description: true,
       status: true,
+      coverUrl: true,
+      coverImageStorageKey: true,
       products: {
         orderBy: { createdAt: 'desc' },
         take: 12,
@@ -187,6 +207,17 @@ router.get('/:slug', async (req, res) => {
         },
       },
     },
+  });
+  if (!shop) return res.status(404).json({ error: 'not_found' });
+  res.json(shop);
+});
+
+// GET /api/v1/shops/by-id/:id — public shop detail by ID (for listings enrichment)
+router.get('/by-id/:id', async (req, res) => {
+  const { id } = req.params;
+  const shop = await prisma.shop.findUnique({
+    where: { id },
+    select: { id: true, name: true, slug: true, description: true, status: true, coverUrl: true, coverImageStorageKey: true },
   });
   if (!shop) return res.status(404).json({ error: 'not_found' });
   res.json(shop);

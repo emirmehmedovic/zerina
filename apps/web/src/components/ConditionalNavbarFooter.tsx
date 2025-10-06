@@ -20,7 +20,7 @@ export default function ConditionalNavbarFooter({ children }: ConditionalNavbarF
   
   return (
     <>
-      {showNavbarFooter && <GlobalHeroBackground />}
+      {showNavbarFooter && <GlobalHeroBackground useImage={false} />}
       {showNavbarFooter && <AuroraBackground />}
       
       {showNavbarFooter && <Navbar />}

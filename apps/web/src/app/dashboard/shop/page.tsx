@@ -6,8 +6,9 @@ import { Suspense } from "react";
 
 async function getShopData(): Promise<Shop | null> {
   try {
+    const cookieStore = await cookies();
     const res = await fetch(`${API_URL}/api/v1/shops/mine`, {
-      headers: { Cookie: cookies().toString() },
+      headers: { Cookie: cookieStore.toString() },
       next: { tags: ["shop"] }, // Add tag for revalidation
     });
     if (res.ok) {

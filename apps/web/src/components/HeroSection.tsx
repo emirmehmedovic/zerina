@@ -2,197 +2,138 @@
 
 import EnhancedGlass from "./ui/EnhancedGlass";
 import HeroLiquidGlass from "./ui/HeroLiquidGlass";
-import { Package, Target, Users, Bell, PieChart } from "lucide-react";
+import ProductCarousel from "./ProductCarousel";
+import DiscountedProducts from "./DiscountedProducts";
+import PopularItemsScroll from "./PopularItemsScroll";
+import { Sparkles, Tag } from "lucide-react";
 import Link from 'next/link';
-import Image from 'next/image';
 
 interface Category {
   id: string;
   name: string;
 }
 
-interface HeroSectionProps {
-  categories: Category[];
+interface Product {
+  id: string;
+  title: string;
+  slug: string;
+  priceCents: number;
+  originalPriceCents?: number;
+  discountPercent?: number;
+  isOnSale?: boolean;
+  currency: string;
+  images?: { storageKey: string }[];
 }
 
-export default function HeroSection({ categories }: HeroSectionProps) {
-  return (
-    <div className="relative mb-20 w-full px-4 sm:px-6 lg:px-8">
+interface HeroSectionProps {
+  categories: Category[];
+  latestProducts: Product[];
+  discountedProducts: Product[];
+  popularProducts: Product[];
+}
 
-      {/* Bento Grid Layout - Using flex for more precise control */}
-      <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 mt-8">
-        {/* Left Column - Tall Card */}
-        <div className="md:w-1/3">
-          <div className="relative w-full h-full overflow-hidden rounded-[24px]">
-            {/* Background image */}
-            <div className="absolute inset-0 z-0">
-              <Image 
-                src="/pexels-minan1398-713661.jpg" 
-                alt="Decorative lanterns" 
-                fill
-                priority
-                className="w-full h-full object-cover"
-              />
-              {/* Dark overlay for better text readability */}
-              <div className="absolute inset-0 bg-black/40"></div>
-            </div>
-            
-            {/* Liquid glass effect on top of the image */}
-            <HeroLiquidGlass className="w-full h-full z-10 relative" padding="0" cornerRadius={24}>
-              <div className="p-5 md:p-6 lg:p-8 flex flex-col h-full min-h-[300px] sm:min-h-[400px] md:min-h-[500px] lg:min-h-[520px]">
-                <div className="flex-1 flex flex-col">
-                  <div className="mb-4 md:mb-6">
-                    <Package className="h-10 w-10 md:h-12 md:w-12 text-white mb-3 md:mb-4" />
-                  </div>
-                  <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-zinc-100 mb-2">Trending Products</h2>
-                  <p className="text-zinc-300 mb-4 md:mb-6 text-sm sm:text-base">
-                    We curate collections based on real insights, not guesswork—so every product recommendation has purpose.
-                  </p>
+export default function HeroSection({ 
+  categories, 
+  latestProducts,
+  discountedProducts,
+  popularProducts 
+}: HeroSectionProps) {
+  return (
+    <div className="relative mb-8 w-full px-4 sm:px-6 lg:px-8">
+      {/* Category Pills - Moved Above Bento Grid */}
+      <div className="mb-6 flex flex-wrap gap-2.5 justify-center">
+        {categories.slice(0, 8).map((category) => (
+          <Link
+            key={category.id}
+            href={`/categories/${encodeURIComponent(category.name.toLowerCase().replace(/\s+/g, '-'))}`}
+            className="px-4 py-2 rounded-full bg-rose-50/80 hover:bg-rose-100/90 text-amber-900 hover:text-amber-950 text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            {category.name}
+          </Link>
+        ))}
+      </div>
+
+      {/* New Bento Grid Layout */}
+      <div className="flex flex-col md:flex-row gap-3">
+        {/* Left Column - Two Stacked Cards */}
+        <div className="md:w-1/3 flex flex-col gap-3">
+          {/* New Deals Card - Soft Lavender */}
+          <div className="flex-1 bg-gradient-to-br from-violet-50/30 via-white to-purple-50/20 rounded-3xl shadow-sm hover:shadow-md transition-all duration-300 border border-violet-100/30 backdrop-blur-sm">
+            <div className="p-6 md:p-7 lg:p-8 flex flex-col h-full min-h-[400px]">
+              <div className="mb-6">
+                <div className="inline-flex p-3 rounded-2xl bg-violet-100/50 mb-4">
+                  <Sparkles className="h-8 w-8 text-violet-600" />
                 </div>
-                <div>
-                  <div className="transform transition-transform duration-200 hover:scale-105 active:scale-95">
-                    <EnhancedGlass 
-                      className="inline-block" 
-                      padding="20px 32px" 
-                      cornerRadius={999}
-                      intensity={6}
-                      variant="subtle"
-                      hoverEffect={true}
-                      style={{
-                        minHeight: '60px',
-                        minWidth: '200px',
-                      }}
-                    >
-                      <Link href="/products" className="text-white/90 font-medium text-base md:text-lg flex items-center justify-center whitespace-nowrap">
-                        <span>Browse products</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </Link>
-                    </EnhancedGlass>
-                  </div>
-                </div>
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-3">New Deals</h2>
+                <p className="text-gray-600 text-base">
+                  Latest products just added
+                </p>
               </div>
-            </HeroLiquidGlass>
+              <div className="flex-1">
+                <ProductCarousel products={latestProducts} />
+              </div>
+            </div>
+          </div>
+
+          {/* Become a Seller Card - Soft Peach */}
+          <div className="bg-gradient-to-br from-orange-50/30 via-white to-amber-50/20 rounded-3xl shadow-sm hover:shadow-md transition-all duration-300 border border-orange-100/30 backdrop-blur-sm">
+            <div className="p-6 md:p-7 lg:p-8 flex items-center h-full min-h-[180px]">
+              <div className="flex-1">
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Become a Seller</h2>
+                <p className="text-gray-600 mb-4 text-base">
+                  Stand out with bold products and sharp messaging.
+                </p>
+                <Link 
+                  href="/dashboard/shop" 
+                  className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-orange-100/80 to-amber-100/80 hover:from-orange-200/80 hover:to-amber-200/80 text-gray-800 font-medium text-base rounded-full shadow-sm hover:shadow transition-all duration-200"
+                >
+                  <span>Get Started</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Right Column - Stacked Cards */}
-        <div className="md:w-2/3 flex flex-col space-y-2">
-          {/* Top Row - Full Width */}
-          <div>
-            <HeroLiquidGlass className="w-full" padding="0" cornerRadius={24}>
-              <div className="p-5 md:p-6 lg:p-8 flex items-center h-[140px] sm:h-[150px] md:h-[160px] lg:h-[180px]">
-                <div className="flex-1">
-                  <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-zinc-100 mb-1 md:mb-2">Targeted Collections</h2>
-                  <p className="text-zinc-300 text-sm sm:text-base">
-                    Reach the right products at the right time with personalized recommendations across every category.
-                  </p>
+        <div className="md:w-2/3 flex flex-col gap-3">
+          {/* Top Row - Great Value Deals - Soft Rose */}
+          <div className="flex-1 bg-gradient-to-br from-rose-50/30 via-white to-pink-50/20 rounded-3xl shadow-sm hover:shadow-md transition-all duration-300 border border-rose-100/30 backdrop-blur-sm">
+            <div className="p-5 md:p-6 h-full">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-1">Great Value Deals</h2>
+                  <p className="text-gray-600 text-sm">Find Items On Sale With 50 - 75%</p>
                 </div>
-                <div className="ml-3 md:ml-4 flex-shrink-0">
-                  <Target className="h-12 w-12 md:h-14 md:w-14 lg:h-16 lg:w-16 text-white" />
+                <div className="inline-flex p-2 rounded-xl bg-rose-100/50">
+                  <Tag className="h-6 w-6 text-rose-600" />
                 </div>
               </div>
-            </HeroLiquidGlass>
-          </div>
-
-          {/* Middle Row - Two Cards Side by Side with minimal gap */}
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-            <div className="sm:w-1/2">
-              <HeroLiquidGlass className="w-full h-full" padding="0" cornerRadius={24}>
-                <div className="p-5 md:p-6 lg:p-8 h-[140px] sm:h-[150px] md:h-[160px] lg:h-[160px]">
-                  <div className="mb-3 md:mb-4">
-                    <Users className="h-8 w-8 md:h-10 md:w-10 text-white" />
-                  </div>
-                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-zinc-100 mb-1">Social Shopping</h3>
-                  <p className="text-zinc-300 text-xs sm:text-sm">
-                    From content sharing to engagement features.
-                  </p>
-                </div>
-              </HeroLiquidGlass>
-            </div>
-            <div className="sm:w-1/2">
-              <HeroLiquidGlass className="w-full h-full" padding="0" cornerRadius={24}>
-                <div className="p-5 md:p-6 lg:p-8 h-[140px] sm:h-[150px] md:h-[160px] lg:h-[160px]">
-                  <div className="mb-3 md:mb-4">
-                    <Bell className="h-8 w-8 md:h-10 md:w-10 text-white" />
-                  </div>
-                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-zinc-100 mb-1">Exclusive Deals</h3>
-                  <p className="text-zinc-300 text-xs sm:text-sm">
-                    Boost visibility with content that resonates and delivers value.
-                  </p>
-                </div>
-              </HeroLiquidGlass>
+              <DiscountedProducts products={discountedProducts} />
             </div>
           </div>
 
-          {/* Bottom Row - Two Cards Side by Side */}
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-            <div className="sm:w-2/3">
-              <HeroLiquidGlass className="w-full h-full" padding="0" cornerRadius={24}>
-                <div className="p-5 md:p-6 lg:p-8 flex items-center h-[140px] sm:h-[150px] md:h-[160px] lg:h-[160px]">
-                  <div className="flex-1">
-                    <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-zinc-100 mb-1">Become a Seller</h2>
-                    <p className="text-zinc-300 mb-2 text-xs sm:text-sm">
-                      Stand out with bold products and sharp messaging.
-                    </p>
-                    <div className="transform transition-transform duration-200 hover:scale-105 active:scale-95">
-                      <EnhancedGlass 
-                        className="inline-block" 
-                        padding="12px 20px" 
-                        cornerRadius={999}
-                        intensity={6}
-                        variant="subtle"
-                        hoverEffect={true}
-                        style={{
-                          minHeight: '40px',
-                          minWidth: '120px',
-                        }}
-                      >
-                        <Link href="/dashboard/shop" className="text-white/90 font-medium text-xs sm:text-sm flex items-center justify-center whitespace-nowrap">
-                          <span>Get Started</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7-7 7" />
-                          </svg>
-                        </Link>
-                      </EnhancedGlass>
-                    </div>
-                  </div>
-                  <div className="ml-3 md:ml-4 flex-shrink-0">
-                    <Bell className="h-12 w-12 md:h-14 md:w-14 lg:h-16 lg:w-16 text-white" />
-                  </div>
-                </div>
-              </HeroLiquidGlass>
-            </div>
-            <div className="sm:w-1/3">
-              <HeroLiquidGlass className="w-full h-full" padding="0" cornerRadius={24}>
-                <div className="p-5 md:p-6 lg:p-8 h-[140px] sm:h-[150px] md:h-[160px] lg:h-[160px]">
-                  <div className="mb-3 md:mb-4">
-                    <PieChart className="h-8 w-8 md:h-10 md:w-10 text-white" />
-                  </div>
-                  <h3 className="text-base sm:text-lg font-bold text-zinc-100 mb-1">Sales Analytics</h3>
-                  <p className="text-zinc-300 text-xs">
-                    Track results in real-time and adapt fast.
-                  </p>
-                </div>
-              </HeroLiquidGlass>
+          {/* Bottom Row - Popular Items - Soft Mint */}
+          <div className="flex-1 bg-gradient-to-br from-teal-50/30 via-white to-cyan-50/20 rounded-3xl shadow-sm hover:shadow-md transition-all duration-300 border border-teal-100/30 backdrop-blur-sm">
+            <div className="p-5 md:p-6 h-full min-h-[340px]">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">Popular Items</h2>
+                <Link 
+                  href="/products" 
+                  className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1 font-medium transition-colors"
+                >
+                  View all
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+              <PopularItemsScroll products={popularProducts} />
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Category chips */}
-      <div className="mt-10 flex flex-wrap gap-2.5 justify-center">
-        {categories.slice(0, 8).map((category) => (
-          <HeroLiquidGlass key={category.id} padding="8px 14px" cornerRadius={999} className="text-sm">
-            <Link
-              href={`/categories/${encodeURIComponent(category.name.toLowerCase().replace(/\s+/g, '-'))}`}
-              className="text-white/90 hover:text-white"
-            >
-              {category.name}
-            </Link>
-          </HeroLiquidGlass>
-        ))}
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ export default function Navbar() {
   const links = [
     { href: '/products', label: 'Shop' },
     { href: '/categories', label: 'Categories' },
-    { href: '/shops', label: 'Sellers' },
+    { href: '/shops', label: 'Artisans' },
   ];
 
   useEffect(() => {
@@ -49,11 +49,12 @@ export default function Navbar() {
           cornerRadius={24}
           padding="0"
           className="w-full"
+          tint="rose"
         >
-          <nav className="w-full px-4 md:px-6 py-2 flex items-center justify-between gap-2 md:gap-3 text-white">
+          <nav className="w-full px-4 md:px-6 py-2 flex items-center justify-between gap-2 md:gap-3 text-amber-900">
             {/* Left: Logo + Links */}
             <div className="flex items-center gap-2 md:gap-3">
-              <Link href="/" className="text-xl font-semibold text-white shrink-0">
+              <Link href="/" className="text-xl font-semibold text-amber-900 shrink-0">
                 Zerina
               </Link>
               <div className="hidden md:flex items-center gap-1.5">
@@ -64,7 +65,7 @@ export default function Navbar() {
                       key={l.href}
                       href={l.href}
                       className={`px-2.5 py-1.5 rounded-full text-sm transition-colors ${
-                        active ? 'bg-white/30' : 'hover:bg-white/20'
+                        active ? 'bg-white/40 text-amber-900' : 'hover:bg-white/30 text-amber-800'
                       }`}
                     >
                       {l.label}
@@ -83,7 +84,7 @@ export default function Navbar() {
               <HeaderAuth />
               {/* Mobile Menu Button */}
               <button
-                className="md:hidden text-white focus:outline-none"
+                className="md:hidden text-amber-900 focus:outline-none"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-label="Toggle menu"
               >
@@ -102,13 +103,13 @@ export default function Navbar() {
           
           {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden px-6 py-4 border-t border-white/10 text-white">
+            <div className="md:hidden px-6 py-4 border-t border-white/10 text-amber-900">
               <div className="flex flex-col space-y-3">
                 <div className="pb-2">
                   <SuspenseWrapper />
                 </div>
                 {links.map((l) => (
-                  <Link key={l.href} href={l.href} className="px-3 py-2 rounded-lg hover:bg-white/10">
+                  <Link key={l.href} href={l.href} className="px-3 py-2 rounded-lg hover:bg-white/20">
                     {l.label}
                   </Link>
                 ))}

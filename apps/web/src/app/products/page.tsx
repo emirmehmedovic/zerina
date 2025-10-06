@@ -1,4 +1,5 @@
 import { API_URL } from "@/lib/api";
+import Link from 'next/link';
 import ProductsClient from "./ProductsClient";
 
 type Product = { id: string; title: string; slug: string; priceCents: number; currency: string; shopId: string; images?: { storageKey: string }[] };
@@ -37,15 +38,25 @@ export default async function ProductsPage({ searchParams }: { searchParams?: { 
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
       
       <div className="relative w-full px-4 sm:px-6 lg:px-8">
-        {/* Enhanced header */}
-        <div className="mb-8">
-          <h1 className="text-4xl sm:text-5xl font-bold mb-3 bg-gradient-to-r from-zinc-900 to-zinc-700 dark:from-zinc-100 dark:to-zinc-300 bg-clip-text text-transparent">
-            Discover Products
-          </h1>
-          <p className="text-zinc-600 dark:text-zinc-400 text-lg">
-            Explore our curated collection of handcrafted items
-          </p>
-        </div>
+        {/* Artisan header */}
+        <section className="mb-8">
+          <div className="rounded-3xl bg-gradient-to-br from-rose-50/40 via-white to-pink-50/30 border border-rose-100/60 backdrop-blur-sm shadow-sm p-6 sm:p-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/70 border border-rose-100/70 text-amber-900 text-xs font-semibold mb-3">
+                  Curated collection
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 tracking-tight mb-2">
+                  Discover Products
+                </h1>
+                <p className="text-gray-600 max-w-2xl">
+                  Explore handcrafted goods from real makers—gentle colors, thoughtful details, and timeless design.
+                </p>
+              </div>
+              
+            </div>
+          </div>
+        </section>
         
         <ProductsClient 
           initialItems={items} 

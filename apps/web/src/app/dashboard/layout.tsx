@@ -47,6 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/products/new", label: "New Product", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/orders", label: "Orders", icon: <ClipboardList className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/addresses", label: "My Addresses", icon: <MapPin className="h-4 w-4 mr-2" /> },
+    { href: "/dashboard/shop/appearance", label: "Shop Appearance", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
   ];
 
   const getPageTitle = () => {
@@ -56,6 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (pathname === "/dashboard/products/new") return "Create New Product";
     if (pathname === "/dashboard/orders") return "Orders";
     if (pathname === "/dashboard/addresses") return "My Addresses";
+    if (pathname === "/dashboard/shop/appearance") return "Shop Appearance";
     if (pathname?.startsWith("/dashboard/analytics/")) return "Analytics Details";
     return "Vendor Dashboard";
   };

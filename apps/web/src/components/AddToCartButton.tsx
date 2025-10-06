@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ShoppingCart } from "lucide-react";
 import { useCart } from "./CartProvider";
 
 interface AddToCartButtonProps {
@@ -14,9 +15,10 @@ interface AddToCartButtonProps {
     variantId?: string;
   };
   className?: string;
+  variant?: "primary" | "soft";
 }
 
-export default function AddToCartButton({ product, className = "" }: AddToCartButtonProps) {
+export default function AddToCartButton({ product, className = "", variant = "primary" }: AddToCartButtonProps) {
   const cart = useCart();
   const [addingToCart, setAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -43,14 +45,27 @@ export default function AddToCartButton({ product, className = "" }: AddToCartBu
     }, 500);
   };
 
+  const baseClasses = "relative overflow-hidden mt-4 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 inline-flex items-center justify-center gap-2 px-4 py-2 leading-none";
+  const variantClasses =
+    variant === "soft"
+      ? "bg-white/70 text-amber-900 border border-rose-100/70 hover:bg-rose-50/80 shadow-sm"
+      : "btn-primary";
+  const successClasses =
+    variant === "soft"
+      ? "bg-emerald-500/90 border-emerald-600 text-white"
+      : "bg-green-600 border-green-700";
+
   return (
     <button 
-      className={`btn-primary relative overflow-hidden mt-4 ${addedToCart ? 'bg-green-600 border-green-700' : ''} ${className}`} 
+      className={`${baseClasses} ${variantClasses} ${addedToCart ? successClasses : ''} ${className}`} 
       disabled={addingToCart} 
       onClick={handleAddToCart}
     >
-      <span className={`transition-all duration-300 ${addingToCart ? 'opacity-0' : 'opacity-100'}`}>
-        {addedToCart ? 'Added to cart ✓' : 'Add to cart'}
+      <span className={`inline-flex items-center gap-2 transition-all duration-300 ${addingToCart ? 'opacity-0' : 'opacity-100'}`}>
+        {!addedToCart && variant === 'soft' && (
+          <ShoppingCart className="w-4 h-4 inline-block align-middle text-amber-800/80" />
+        )}
+        <span className="align-middle">{addedToCart ? 'Added to cart ✓' : 'Add to cart'}</span>
       </span>
       {addingToCart && (
         <span className="absolute inset-0 flex items-center justify-center">
