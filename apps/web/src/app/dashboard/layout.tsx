@@ -4,11 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { API_URL } from "@/lib/api";
-import { LayoutDashboard, BarChart2, Package, ShoppingBag, ClipboardList, MapPin, Home, Menu, X, LifeBuoy, User, Shield, LogOut } from "lucide-react";
+import { LayoutDashboard, BarChart2, Package, ShoppingBag, ClipboardList, MapPin, Home, Menu, X, LifeBuoy, User, Shield, LogOut, FileText } from "lucide-react";
 import { Menu as HeadlessMenu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import LogoutButton from "@/components/LogoutButton";
-import GlobalHeroBackground from "@/components/ui/global-hero-background";
 
 type Me = { id: string; role: "BUYER"|"VENDOR"|"ADMIN" };
 
@@ -45,6 +44,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/analytics", label: "Analytics", icon: <BarChart2 className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/products", label: "Products", icon: <Package className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/products/new", label: "New Product", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
+    { href: "/dashboard/blog", label: "Blog", icon: <FileText className="h-4 w-4 mr-2" /> },
+    { href: "/dashboard/blog/new", label: "New Blog Post", icon: <FileText className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/orders", label: "Orders", icon: <ClipboardList className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/addresses", label: "My Addresses", icon: <MapPin className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/shop/appearance", label: "Shop Appearance", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
@@ -55,6 +56,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (pathname === "/dashboard/analytics") return "Analytics";
     if (pathname === "/dashboard/products") return "Products";
     if (pathname === "/dashboard/products/new") return "Create New Product";
+    if (pathname === "/dashboard/blog") return "Blog";
+    if (pathname === "/dashboard/blog/new") return "Create New Blog Post";
+    if (pathname?.startsWith("/dashboard/blog/")) return "Edit Blog Post";
     if (pathname === "/dashboard/orders") return "Orders";
     if (pathname === "/dashboard/addresses") return "My Addresses";
     if (pathname === "/dashboard/shop/appearance") return "Shop Appearance";
@@ -63,8 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-900 to-black text-zinc-200">
-      <GlobalHeroBackground src="/abstract-bg.jpg" overlayOpacity={0.8} />
+    <div className="min-h-screen admin-dark-bg text-zinc-200">
       <div className="flex h-screen relative z-10">
         {/* Mobile sidebar backdrop */}
         {sidebarOpen && (

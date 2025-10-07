@@ -6,15 +6,12 @@ import { useState, useEffect } from "react";
 import AdminGuard from "./Guard";
 import { Home, LayoutDashboard, Package, ShoppingBag, Store, UserPlus, Menu, X, LifeBuoy, User, Shield, BarChart2 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
-import GlobalHeroBackground from "@/components/ui/global-hero-background";
 import { Menu as HeadlessMenu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
-  // Close sidebar when route changes (mobile)
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
@@ -38,9 +35,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-900 to-black text-zinc-200">
+    <div className="min-h-screen admin-dark-bg text-zinc-200">
       <AdminGuard />
-      <GlobalHeroBackground src="/abstract-bg.jpg" overlayOpacity={0.8} />
       <div className="flex h-screen relative z-10">
         {sidebarOpen && <div className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setSidebarOpen(false)}></div>}
         

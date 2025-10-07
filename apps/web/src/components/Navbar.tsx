@@ -14,12 +14,12 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
 
   const links = [
     { href: '/products', label: 'Shop' },
     { href: '/categories', label: 'Categories' },
     { href: '/shops', label: 'Artisans' },
+    { href: '/artisan-chronicles', label: 'Chronicles' },
   ];
 
   useEffect(() => {
@@ -30,11 +30,6 @@ export default function Navbar() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    // Mark as mounted to avoid hydration mismatch when using client-only data like pathname
-    setMounted(true);
   }, []);
 
   return (
@@ -59,7 +54,7 @@ export default function Navbar() {
               </Link>
               <div className="hidden md:flex items-center gap-1.5">
                 {links.map((l) => {
-                  const active = mounted && (pathname === l.href || pathname?.startsWith(l.href + '/'));
+                  const active = pathname === l.href || pathname?.startsWith(l.href + '/');
                   return (
                     <Link
                       key={l.href}

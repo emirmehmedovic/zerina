@@ -1,10 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import AuroraBackground from "@/components/ui/aurora-background";
-import GlobalHeroBackground from "@/components/ui/global-hero-background";
 
 interface ConditionalNavbarFooterProps {
   children: React.ReactNode;
@@ -12,22 +11,20 @@ interface ConditionalNavbarFooterProps {
 
 export default function ConditionalNavbarFooter({ children }: ConditionalNavbarFooterProps) {
   const pathname = usePathname();
-  
-  // Don't show navbar and footer in admin and dashboard sections
-  const isAdminRoute = pathname?.startsWith('/admin');
-  const isDashboardRoute = pathname?.startsWith('/dashboard');
-  const showNavbarFooter = !isAdminRoute && !isDashboardRoute;
-  
+  // Determine visibility purely from pathname so SSR/CSR output is identical
+  const showNavbarFooter = useMemo(() => {
+    const admin = pathname?.startsWith("/admin") ?? false;
+    const dashboard = pathname?.startsWith("/dashboard") ?? false;
+    return !admin && !dashboard;
+  }, [pathname]);
+
   return (
-    <>
-      {showNavbarFooter && <GlobalHeroBackground useImage={false} />}
-      {showNavbarFooter && <AuroraBackground />}
-      
+    <div>
       {showNavbarFooter && <Navbar />}
-      <main className={`w-full mx-auto ${showNavbarFooter ? 'py-8 mt-10' : ''}`}>
+      <main className={`w-full mx-auto ${showNavbarFooter ? 'pt-16 md:pt-20' : ''}`}>
         {children}
       </main>
       {showNavbarFooter && <Footer />}
-    </>
+    </div>
   );
 }

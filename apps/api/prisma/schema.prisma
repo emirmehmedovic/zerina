@@ -38,6 +38,11 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
 // MODELS
 
 model User {
@@ -55,6 +60,7 @@ model User {
   orders        Order[]
   addresses     Address[]
   auditLogs     AdminAuditLog[] @relation(name: "AdminActor")
+  blogPosts     BlogPost[]
 
   @@index([name])
 }
@@ -77,6 +83,8 @@ model Shop {
   products      Product[]
   orders        Order[]
   payouts       Payout[]
+
+  blogPosts     BlogPost[]
 
   @@index([status])
 }
@@ -246,4 +254,28 @@ model AdminAuditLog {
   createdAt DateTime @default(now())
 
   actor     User     @relation(name: "AdminActor", fields: [actorId], references: [id])
+}
+
+model BlogPost {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String      @unique
+  excerpt     String?     @db.Text
+  content     String      @db.Text
+  coverImageStorageKey String?
+  status      BlogStatus  @default(DRAFT)
+  tags        String[]
+  publishedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  authorId    String
+  shopId      String?
+
+  author      User        @relation(fields: [authorId], references: [id])
+  shop        Shop?       @relation(fields: [shopId], references: [id])
+
+  @@index([status, publishedAt])
+  @@index([authorId, createdAt])
+  @@index([shopId, createdAt])
 }

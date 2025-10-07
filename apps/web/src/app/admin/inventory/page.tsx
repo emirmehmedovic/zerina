@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { API_URL } from "@/lib/api";
+import { imageUrl } from "@/lib/imageUrl";
 import { Search, Edit, Eye, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -196,7 +197,7 @@ export default function AdminInventoryPage() {
               </div>
               <div className="col-span-1">
                 {p.images && p.images.length > 0 ? (
-                  <Image src={`${API_URL}${p.images[0].storageKey}`} alt={p.title} width={56} height={56} className="h-14 w-14 object-cover rounded-lg" />
+                  <Image src={imageUrl(p.images[0].storageKey)} alt={p.title} width={56} height={56} className="h-14 w-14 object-cover rounded-lg" />
                 ) : (
                   <div className="h-14 w-14 rounded-lg bg-black/20" />
                 )}

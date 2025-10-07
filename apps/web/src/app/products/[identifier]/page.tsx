@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { API_URL } from "@/lib/api";
 import StaticImage from "@/components/StaticImage";
@@ -32,6 +32,9 @@ export default function ProductDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [related, setRelated] = useState<any[]>([]);
   const [fromShop, setFromShop] = useState<any[]>([]);
+  // From vendor carousel controls
+  const vendorRef = useRef<HTMLDivElement | null>(null);
+  const [vendorPaused, setVendorPaused] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -63,21 +66,61 @@ export default function ProductDetailPage() {
     fetchProduct();
   }, [identifier]);
 
-  // Fetch related picks (latest products) for the bottom carousel
+  // Fetch 'From this vendor' products when product (with shop) is loaded
   useEffect(() => {
+    const shopId = (product as any)?.shop?.id || (product as any)?.shopId;
+    const shopSlug = (product as any)?.shop?.slug;
+    if (!shopId && !shopSlug) return;
     let active = true;
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/api/v1/products?take=10`, { cache: 'no-store' });
+        // 1) Try API-side filtering by shopId or shopSlug
+        const url = shopId
+          ? `${API_URL}/api/v1/products?shopId=${encodeURIComponent(shopId)}&take=24`
+          : `${API_URL}/api/v1/products?shopSlug=${encodeURIComponent(shopSlug!)}&take=24`;
+        let res = await fetch(url, { cache: 'no-store' });
+        let items: any[] = [];
         if (res.ok) {
           const data = await res.json();
-          const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-          if (active) setRelated(items);
+          items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
         }
+        // 2) Fallback: fetch latest and filter client-side if API doesn't support filters
+        if (!items.length) {
+          const res2 = await fetch(`${API_URL}/api/v1/products?take=50`, { cache: 'no-store' });
+          if (res2.ok) {
+            const data2 = await res2.json();
+            const all = Array.isArray(data2?.items) ? data2.items : Array.isArray(data2) ? data2 : [];
+            items = all.filter((p: any) => (shopId ? p.shopId === shopId : p.shop?.slug === shopSlug));
+          }
+        }
+        // Exclude current product and set
+        const finalItems = items.filter((p: any) => p.id !== product?.id);
+        if (active) setFromShop(finalItems);
       } catch {}
     })();
     return () => { active = false; };
-  }, []);
+  }, [product?.shop?.id, (product as any)?.shopId, product?.shop?.slug, product?.id]);
+
+  // Infinite auto-scroll for From this vendor carousel
+  useEffect(() => {
+    const el = vendorRef.current;
+    if (!el || fromShop.length === 0) return;
+    let rafId: number;
+    const speed = 0.5; // px per frame
+    const tick = () => {
+      if (!el) return;
+      if (!vendorPaused) {
+        el.scrollLeft += speed;
+      }
+      const half = el.scrollWidth / 2; // duplicated content
+      if (el.scrollLeft >= half) {
+        el.scrollLeft = 0;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [fromShop.length, vendorPaused]);
 
   if (loading) {
     return (
@@ -288,23 +331,59 @@ export default function ProductDetailPage() {
           </div>
         </section>
       )}
-      {/* From this shop */}
+      {/* From this vendor - infinite carousel (styled like Overall Picks) */}
       {fromShop.length > 0 && (
-        <section className="mt-8 px-4 sm:px-6 lg:px-8">
+        <section className="mt-10 px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-lg font-semibold text-amber-900 mb-3">From this shop</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {fromShop.slice(0,8).map((p:any) => (
-                <ProductCard key={p.id} product={{
-                  id: p.id,
-                  title: p.title,
-                  slug: p.slug,
-                  priceCents: p.priceCents,
-                  currency: p.currency,
-                  images: p.images,
-                  shop: product?.shop ? { name: product.shop.name } : undefined,
-                }} />
-              ))}
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-amber-900">From this vendor</h2>
+              <div className="text-xs text-amber-900/70">More from the same shop</div>
+            </div>
+            <div
+              ref={vendorRef}
+              onMouseEnter={() => setVendorPaused(true)}
+              onMouseLeave={() => setVendorPaused(false)}
+              className="relative overflow-x-auto whitespace-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [ &::-webkit-scrollbar]:hidden"
+            >
+              <div className="inline-flex gap-4 pr-4">
+                {[...fromShop, ...fromShop].slice(0, Math.max(10, fromShop.length * 2)).map((p: any, idx: number) => (
+                  <div key={`${p.id}-${idx}`} className="shrink-0 w-56">
+                    <div className={`relative rounded-[20px] bg-white shadow-md border border-amber-100 p-2 overflow-hidden ${idx%2===0 ? 'rotate-[-0.8deg]' : 'rotate-[0.8deg]' }`}>
+                      <div className="relative h-40 w-full rounded-[14px] overflow-hidden">
+                        {p.images?.[0]?.storageKey ? (
+                          <StaticImage fileName={p.images[0].storageKey} alt={p.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="absolute inset-0 bg-amber-50" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
+                      </div>
+                      <div className="px-2 pt-2 pb-3">
+                        <div className="mb-1 flex flex-wrap gap-1.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/85 text-amber-900 border border-amber-100">Vendor</span>
+                        </div>
+                        <div className="text-sm font-semibold text-amber-900 line-clamp-2">{p.title}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Arrow controls */}
+              <button
+                type="button"
+                aria-label="Previous"
+                onClick={() => { const el = vendorRef.current; if (!el) return; el.scrollBy({ left: -240, behavior: 'smooth' }); }}
+                className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 items-center justify-center rounded-full bg-white/90 border border-amber-100 shadow"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                aria-label="Next"
+                onClick={() => { const el = vendorRef.current; if (!el) return; el.scrollBy({ left: 240, behavior: 'smooth' }); }}
+                className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 items-center justify-center rounded-full bg-white/90 border border-amber-100 shadow"
+              >
+                ›
+              </button>
             </div>
           </div>
         </section>

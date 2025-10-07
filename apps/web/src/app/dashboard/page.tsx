@@ -154,6 +154,10 @@ export default function VendorOverviewPage() {
                       <Settings className="h-6 w-6 text-purple-400" />
                       <span className="font-semibold text-white">View My Shop</span>
                     </a>
+                    <a href="/dashboard/blog" className="group flex items-center gap-3 rounded-xl p-4 bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-300 hover:-translate-y-1">
+                      <FileText className="h-6 w-6 text-amber-300" />
+                      <span className="font-semibold text-white">Write a Blog</span>
+                    </a>
                   </div>
                 </div>
               </div>
