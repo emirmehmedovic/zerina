@@ -5,7 +5,7 @@ import { Palette, Shirt, Home, Gem, Gamepad2, Package, Sparkles } from 'lucide-r
 type Category = {
   id: string;
   name: string;
-  slug: string;
+  slug?: string;
 };
 
 interface FeaturedCategoriesProps {
@@ -81,7 +81,7 @@ const FeaturedCategories: React.FC<FeaturedCategoriesProps> = ({ categories }) =
             return (
               <Link
                 key={category.id}
-                href={`/categories/${category.slug}`}
+                href={`/products?categoryId=${category.id}`}
                 className="flex-shrink-0 group"
               >
                 {/* Clean elegant card */}

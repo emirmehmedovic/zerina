@@ -30,11 +30,13 @@ interface ProductsClientProps {
   initialTotal?: number;
   categories: Category[];
   initialCategoryId?: string;
+  initialQuery?: string;
 }
 
-export default function ProductsClient({ initialItems, initialTotal, categories, initialCategoryId = "" }: ProductsClientProps) {
+export default function ProductsClient({ initialItems, initialTotal, categories, initialCategoryId = "", initialQuery = "" }: ProductsClientProps) {
   const [items, setItems] = useState<Product[]>(initialItems);
   const [categoryId, setCategoryId] = useState<string>(initialCategoryId);
+  const [query, setQuery] = useState<string>(initialQuery);
   const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(1000);
   const [ratings, setRatings] = useState<number[]>([]);
@@ -45,7 +47,22 @@ export default function ProductsClient({ initialItems, initialTotal, categories,
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [sortBy, setSortBy] = useState<string>("relevance");
-  const [density, setDensity] = useState<'comfortable'|'compact'>('comfortable');
+  const [density, setDensity] = useState<'comfortable'|'compact'>( 'comfortable');
+
+  // When server-provided props change due to a new search (?q=...),
+  // sync the client state and reset filters to reflect the new query.
+  useEffect(() => {
+    setQuery(initialQuery);
+    setItems(initialItems);
+    setSkip(initialItems.length);
+    setTotal(initialTotal ?? initialItems.length);
+    // Reset filters so new search isn't constrained by the previous state
+    setCategoryId("");
+    setMinPrice(0);
+    setMaxPrice(1000);
+    setRatings([]);
+    setSortBy("relevance");
+  }, [initialQuery, initialItems, initialTotal]);
 
   // Handle category change
   const handleCategoryChange = async (id: string) => {
@@ -81,6 +98,7 @@ export default function ProductsClient({ initialItems, initialTotal, categories,
       url.searchParams.set('take', '12');
       url.searchParams.set('skip', '0');
       if (catId) url.searchParams.set('categoryId', catId);
+      if (query) url.searchParams.set('q', query);
       if (min > 0) url.searchParams.set('minPrice', min.toString());
       if (max < 1000) url.searchParams.set('maxPrice', max.toString());
       if (sortBy && sortBy !== 'relevance') url.searchParams.set('sort', sortBy);
@@ -114,6 +132,7 @@ export default function ProductsClient({ initialItems, initialTotal, categories,
       url.searchParams.set('take', '12');
       url.searchParams.set('skip', skip.toString());
       if (categoryId) url.searchParams.set('categoryId', categoryId);
+      if (query) url.searchParams.set('q', query);
       if (minPrice > 0) url.searchParams.set('minPrice', minPrice.toString());
       if (maxPrice < 1000) url.searchParams.set('maxPrice', maxPrice.toString());
       if (ratings.length > 0) {

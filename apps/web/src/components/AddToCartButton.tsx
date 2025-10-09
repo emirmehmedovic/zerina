@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import { useCart } from "./CartProvider";
+import { useToast } from "./ToastProvider";
 
 interface AddToCartButtonProps {
   product: {
@@ -20,6 +21,7 @@ interface AddToCartButtonProps {
 
 export default function AddToCartButton({ product, className = "", variant = "primary" }: AddToCartButtonProps) {
   const cart = useCart();
+  const toast = useToast();
   const [addingToCart, setAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
 
@@ -36,15 +38,25 @@ export default function AddToCartButton({ product, className = "", variant = "pr
       currency: product.currency,
       image: product.image || undefined,
     });
-    
+
     // Show success animation
     setAddedToCart(true);
+    // Toast success
+    try {
+      toast.push({
+        type: "success",
+        title: "Added to cart",
+        message: `${product.title} has been added to your cart`,
+        timeoutMs: 2500,
+      });
+    } catch (error) {
+      console.error(error);
+    }
     setTimeout(() => {
       setAddingToCart(false);
       setTimeout(() => setAddedToCart(false), 1500);
     }, 500);
   };
-
   const baseClasses = "relative overflow-hidden mt-4 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 inline-flex items-center justify-center gap-2 px-4 py-2 leading-none";
   const variantClasses =
     variant === "soft"

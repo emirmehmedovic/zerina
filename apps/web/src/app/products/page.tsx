@@ -5,10 +5,11 @@ import ProductsClient from "./ProductsClient";
 type Product = { id: string; title: string; slug: string; priceCents: number; currency: string; shopId: string; images?: { storageKey: string }[] };
 type Category = { id: string; name: string };
 
-export default async function ProductsPage({ searchParams }: { searchParams?: { categoryId?: string } }) {
+export default async function ProductsPage({ searchParams }: { searchParams?: { categoryId?: string; query?: string; q?: string } }) {
   // Awaiting searchParams to fix the error
   const params = await Promise.resolve(searchParams);
   const categoryId = params?.categoryId || "";
+  const query = params?.query || params?.q || "";
   let items: Product[] = [];
   let total: number = 0;
   let categories: Category[] = [];
@@ -16,6 +17,8 @@ export default async function ProductsPage({ searchParams }: { searchParams?: { 
     const url = new URL(`${API_URL}/api/v1/products`);
     url.searchParams.set('take', '12');
     if (categoryId) url.searchParams.set('categoryId', categoryId);
+    if (query) url.searchParams.set('q', query);
+    url.searchParams.set('noCount', '1');
     const [res, resCats] = await Promise.all([
       fetch(url.toString(), { cache: 'no-store' }),
       fetch(`${API_URL}/api/v1/categories`, { cache: 'no-store' }),
@@ -62,7 +65,8 @@ export default async function ProductsPage({ searchParams }: { searchParams?: { 
           initialItems={items} 
           initialTotal={total}
           categories={categories} 
-          initialCategoryId={categoryId} 
+          initialCategoryId={categoryId}
+          initialQuery={query}
         />
       </div>
     </main>

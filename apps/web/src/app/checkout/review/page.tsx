@@ -26,7 +26,9 @@ type Group = {
 };
 import { useCart } from "@/components/CartProvider";
 import { API_URL } from "@/lib/api";
+import { imageUrl } from "@/lib/imageUrl";
 import { getCsrfToken } from "@/lib/csrf";
+import AddToCartButton from "@/components/AddToCartButton";
 
 export default function CheckoutReviewPage() {
   const router = useRouter();
@@ -38,6 +40,18 @@ export default function CheckoutReviewPage() {
   const [validated, setValidated] = useState<ValidatedData | null>(null);
   const [placing, setPlacing] = useState(false);
   const [result, setResult] = useState<unknown>(null);
+  const [recommended, setRecommended] = useState<Array<{
+    id: string;
+    slug: string;
+    title: string;
+    priceCents: number;
+    originalPriceCents?: number;
+    discountPercent?: number;
+    isOnSale?: boolean;
+    currency: string;
+    images?: Array<{ storageKey: string }>;
+    shop?: { slug: string };
+  }> | null>(null);
 
   useEffect(() => {
     try {
@@ -91,6 +105,39 @@ export default function CheckoutReviewPage() {
     run();
   }, [items, shipping, billing]);
 
+  // Fetch a few suggested products for the "Forgot something?" strip after validation completes,
+  // cache in sessionStorage, and filter out items already in the cart
+  useEffect(() => {
+    if (loading) return;
+    const run = async () => {
+      try {
+        // Try cache first
+        try {
+          const cached = sessionStorage.getItem('checkout:recs');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) {
+              const filtered = parsed.filter((p: any) => !items.some((ci) => ci.productId === p.id));
+              setRecommended(filtered);
+              return;
+            }
+          }
+        } catch {}
+
+        const res = await fetch(`${API_URL}/api/v1/products?latest=1&take=6&noCount=1`, { credentials: 'include' });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok) {
+          const list = Array.isArray(body.items) ? body.items : [];
+          const filtered = list.filter((p: any) => !items.some((ci) => ci.productId === p.id));
+          setRecommended(filtered);
+          try { sessionStorage.setItem('checkout:recs', JSON.stringify(list)); } catch {}
+        }
+      } catch {}
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
   const placeOrder = async () => {
     if (!shipping || !billing) return;
     setPlacing(true);
@@ -130,80 +177,186 @@ export default function CheckoutReviewPage() {
     }
   };
 
-  if (!shipping || !billing) return null;
+  if (!shipping || !billing) {
+    return (
+      <main className="min-h-screen p-6 sm:p-10 relative overflow-hidden">
+        <div className="relative w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <div className="card-base card-glass p-5 ring-1 ring-rose-200/40 rounded-2xl">
+            <div className="text-amber-900 dark:text-amber-900 mb-3">We couldn't find your address details for this step.</div>
+            <a href="/checkout" className="group inline-block rounded-xl px-5 py-3 font-semibold text-amber-900 dark:text-amber-900 ring-1 ring-rose-200/60 bg-gradient-to-r from-rose-100/80 via-amber-100/80 to-rose-100/80 hover:from-rose-100 hover:to-amber-100 transition-colors">Go back to Address</a>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main>
-      <h1 className="text-3xl font-bold mb-4">Review your order</h1>
-      {loading ? (
-        <div className="card-base card-glass p-4">Validating your cart…</div>
-      ) : error ? (
-        <div className="card-base card-glass p-4 text-red-600 text-sm">{error}</div>
-      ) : result ? (
-        <div className="card-base card-glass p-4">
-          <div className="text-lg font-semibold mb-2">Order created</div>
-          <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(result, null, 2)}</pre>
-          <div className="mt-3">
-            <Link href="/" className="btn-primary">Back to Home</Link>
+    <main className="min-h-screen p-6 sm:p-10 relative overflow-hidden">
+      <div className="relative w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        {/* Progress indicator */}
+        <div className="mb-4 flex items-center gap-2 text-xs font-medium text-amber-900">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-100/70 text-amber-900 ring-1 ring-rose-200/60">1</span>
+            <span>Address</span>
+          </div>
+          <div className="h-px flex-1 bg-gradient-to-r from-rose-200/60 via-amber-200/60 to-rose-200/60" />
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-100/80 text-amber-900 ring-1 ring-rose-200/60">2</span>
+            <span>Review</span>
+          </div>
+          <div className="flex items-center gap-2 opacity-80">
+            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-50/70 text-amber-900 ring-1 ring-rose-200/60">3</span>
+            <span className="dark:text-amber-900">Confirm</span>
           </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 card-base card-glass p-4">
-            <div className="text-lg font-semibold mb-2">Items</div>
-            {/* Group by shop */}
-            {(() => {
-              const groups: Record<string, Group> = {};
-              (validated?.items || []).forEach((it: ValidatedItem) => {
-                const key = it.shopId || 'unknown';
-                if (!groups[key]) groups[key] = { shop: it.shop, rows: [], subtotal: 0 };
-                groups[key].rows.push(it);
-                groups[key].subtotal += it.priceCents * it.qty;
-              });
-              const entries = Object.entries(groups);
-              return (
-                <div className="space-y-4">
-                  {entries.map(([shopId, g]) => (
-                    <div key={shopId} className="border border-light-glass-border rounded-md p-3">
-                      <div className="mb-2 text-sm font-medium">{g.shop?.name || 'Shop'}{g.shop?.slug && (
-                        <a className="ml-2 text-xs underline" href={`/shops/${g.shop.slug}`}>View shop</a>
-                      )}</div>
-                      <ul className="divide-y divide-light-glass-border">
-                        {g.rows.map((it, idx) => (
-                          <li key={idx} className="py-2 flex items-center justify-between">
-                            <div className="text-sm">{it.title} {it.variantId ? `(variant)` : ''} × {it.qty}</div>
-                            <div className="text-sm font-medium">{((it.priceCents * it.qty)/100).toFixed(2)} {validated?.currency}</div>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="text-xs text-light-muted dark:text-dark-muted">Shop subtotal</div>
-                        <div className="text-sm font-medium">{(g.subtotal/100).toFixed(2)} {validated?.currency}</div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold mb-6 tracking-tight text-amber-900 dark:text-amber-900">Review your order</h1>
+        {loading ? (
+          <div className="card-base card-glass p-4 text-amber-900 dark:text-amber-900">Validating your cart…</div>
+        ) : error ? (
+          <div className="card-base card-glass p-4 text-sm text-red-700 dark:text-red-400">{error}</div>
+        ) : result ? (
+          <div className="card-base card-glass p-4">
+            <div className="text-lg font-semibold mb-2 text-amber-900 dark:text-amber-900">Order created</div>
+            <pre className="text-xs whitespace-pre-wrap text-amber-900 dark:text-amber-900">{JSON.stringify(result, null, 2)}</pre>
+            <div className="mt-3">
+              <Link href="/" className="group inline-block rounded-xl px-4 py-2 font-semibold text-amber-900 dark:text-amber-900 ring-1 ring-rose-200/60 bg-gradient-to-r from-rose-100/80 via-amber-100/80 to-rose-100/80 hover:from-rose-100 hover:to-amber-100 transition-colors">Back to Home</Link>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 card-base card-glass p-5 ring-1 ring-rose-200/40 dark:ring-rose-400/20 rounded-2xl">
+              <div className="text-lg font-semibold mb-3 text-amber-900 dark:text-amber-900">Items</div>
+              {/* Group by shop */}
+              {(() => {
+                const groups: Record<string, Group> = {};
+                (validated?.items || []).forEach((it: ValidatedItem) => {
+                  const key = it.shopId || 'unknown';
+                  if (!groups[key]) groups[key] = { shop: it.shop, rows: [], subtotal: 0 };
+                  groups[key].rows.push(it);
+                  groups[key].subtotal += it.priceCents * it.qty;
+                });
+                const entries = Object.entries(groups);
+                return (
+                  <div className="space-y-4">
+                    {entries.map(([shopId, g]) => (
+                      <div key={shopId} className="rounded-xl p-4 ring-1 ring-rose-200/40 dark:ring-rose-400/20 bg-rose-50/20 dark:bg-rose-500/5">
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="text-sm font-semibold text-amber-900 dark:text-amber-900">{g.shop?.name || 'Shop'}</div>
+                          {g.shop?.slug && (
+                            <a className="text-xs text-amber-800 dark:text-amber-900 hover:underline" href={`/shops/${g.shop.slug}`}>View shop</a>
+                          )}
+                        </div>
+                        <ul className="divide-y divide-rose-200/50 dark:divide-rose-400/20">
+                          {g.rows.map((it, idx) => (
+                            <li key={idx} className="py-2 flex items-center justify-between">
+                              <div className="pr-3 min-w-0">
+                                <div className="text-sm font-medium text-amber-900 dark:text-amber-900 truncate">{it.title}</div>
+                                <div className="mt-0.5 flex items-center gap-2 text-xs">
+                                  {it.variantId && (
+                                    <span className="inline-block px-2 py-0.5 rounded-full bg-rose-100/70 text-rose-800 dark:bg-rose-500/15 dark:text-rose-200 border border-rose-200/50 dark:border-rose-400/20">variant</span>
+                                  )}
+                                  <span className="text-amber-900/80 dark:text-amber-900/80">× {it.qty}</span>
+                                  <span className="text-amber-900/70 dark:text-amber-900/70">{(it.priceCents/100).toFixed(2)} {validated?.currency} each</span>
+                                </div>
+                              </div>
+                              <div className="text-sm font-semibold text-amber-900 dark:text-amber-900 whitespace-nowrap">{((it.priceCents * it.qty)/100).toFixed(2)} {validated?.currency}</div>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="mt-3 flex items-center justify-between">
+                          <div className="text-xs text-amber-900/90 dark:text-amber-900/90">Shop subtotal</div>
+                          <div className="text-sm font-semibold text-amber-900 dark:text-amber-900">{(g.subtotal/100).toFixed(2)} {validated?.currency}</div>
+                        </div>
                       </div>
+                    ))}
+                    <div className="pt-4 border-t border-rose-200/60 dark:border-rose-400/30 flex items-center justify-between">
+                      <div className="text-base font-bold text-amber-900 dark:text-amber-900">Total</div>
+                      <div className="text-base font-extrabold text-amber-900 dark:text-amber-900">{(validated!.totalCents/100).toFixed(2)} {validated?.currency}</div>
                     </div>
-                  ))}
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-light-muted dark:text-dark-muted">Total</div>
-                    <div className="text-sm font-medium">{(validated!.totalCents/100).toFixed(2)} {validated?.currency}</div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
+            </div>
+            <div className="card-base card-glass p-5 h-fit ring-1 ring-rose-200/40 dark:ring-rose-400/20 rounded-2xl">
+              <div className="text-lg font-semibold mb-3 text-amber-900 dark:text-amber-900">Addresses</div>
+              <div className="mb-3">
+                <div className="text-sm font-medium mb-1 text-amber-900 dark:text-amber-900">Shipping</div>
+                <div className="text-sm text-amber-900/90 dark:text-amber-900/90">{shipping.street}, {shipping.city} {shipping.postalCode}, {shipping.country}</div>
+              </div>
+              <div className="mb-4">
+                <div className="text-sm font-medium mb-1 text-amber-900 dark:text-amber-900">Billing</div>
+                <div className="text-sm text-amber-900/90 dark:text-amber-900/90">{billing.street}, {billing.city} {billing.postalCode}, {billing.country}</div>
+              </div>
+              <button
+                className="group relative w-full rounded-xl px-5 py-3 font-semibold text-amber-900 dark:text-amber-900 shadow-sm ring-1 ring-rose-200/60 dark:ring-rose-400/20 bg-gradient-to-r from-rose-100/80 via-amber-100/80 to-rose-100/80 hover:from-rose-100 hover:to-amber-100 transition-colors disabled:opacity-60"
+                onClick={placeOrder}
+                disabled={placing}
+              >
+                {placing ? 'Placing…' : 'Place order'}
+                <span aria-hidden className="absolute inset-0 rounded-xl pointer-events-none shadow-[0_0_0_1px_rgba(244,114,182,0.25)_inset]" />
+              </button>
+            </div>
           </div>
-          <div className="card-base card-glass p-4 h-fit">
-            <div className="text-lg font-semibold mb-2">Addresses</div>
-            <div className="mb-3">
-              <div className="text-sm font-medium mb-1">Shipping</div>
-              <div className="text-sm text-light-muted dark:text-dark-muted">{shipping.street}, {shipping.city} {shipping.postalCode}, {shipping.country}</div>
+        )}
+
+        {/* Forgot something? recommendations strip */}
+        <div className="mt-8">
+          <div className="card-base card-glass p-5 ring-1 ring-rose-200/40 dark:ring-rose-400/20 rounded-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-lg font-semibold text-amber-900 dark:text-amber-900">Forgot something?</div>
+              <div className="text-xs text-amber-900/80 dark:text-amber-900/80">Hand-picked for you</div>
             </div>
-            <div className="mb-4">
-              <div className="text-sm font-medium mb-1">Billing</div>
-              <div className="text-sm text-light-muted dark:text-dark-muted">{billing.street}, {billing.city} {billing.postalCode}, {billing.country}</div>
+            <div className="overflow-x-auto -mx-2 px-2">
+              <div className="flex gap-4 min-w-full snap-x snap-mandatory">
+                {(recommended || []).slice(0,6).map((p) => (
+                  <div key={p.id} className="w-48 shrink-0 snap-start rounded-xl ring-1 ring-rose-200/40 dark:ring-rose-400/20 bg-rose-50/20 dark:bg-rose-500/5 overflow-hidden">
+                    <div className="aspect-[4/3] bg-white/40 dark:bg-rose-900/20">
+                      <img
+                        src={imageUrl(p.images?.[0]?.storageKey)}
+                        alt={p.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                      />
+                    </div>
+                    <div className="p-3">
+                      <div className="text-xs font-semibold text-amber-900 dark:text-amber-900 line-clamp-2">{p.title}</div>
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <div className="text-sm font-bold text-amber-900 dark:text-amber-900">{(p.priceCents/100).toFixed(2)} {p.currency}</div>
+                        {((p.isOnSale || p.discountPercent) && p.originalPriceCents && p.originalPriceCents > p.priceCents) && (
+                          <>
+                            <div className="text-xs text-amber-900/70 line-through">{(p.originalPriceCents/100).toFixed(2)} {p.currency}</div>
+                            {typeof p.discountPercent === 'number' && p.discountPercent > 0 && (
+                              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-rose-100/70 text-rose-800 border border-rose-200/50">-{p.discountPercent}%</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      {p?.shop?.slug && (
+                        <a href={`/shops/${p.shop.slug}`} className="mt-2 inline-block text-[11px] underline text-amber-900/90 dark:text-amber-900/90">View</a>
+                      )}
+                      <AddToCartButton
+                        product={{
+                          productId: p.id,
+                          title: p.title,
+                          slug: p.slug,
+                          priceCents: p.priceCents,
+                          currency: p.currency,
+                          image: p.images?.[0]?.storageKey || null,
+                        }}
+                        variant="soft"
+                        className="mt-2 w-full"
+                      />
+                    </div>
+                  </div>
+                ))}
+                {recommended === null && (
+                  <div className="text-sm text-amber-900/80 dark:text-amber-900/80">Loading suggestions…</div>
+                )}
+              </div>
             </div>
-            <button className="btn-primary w-full" onClick={placeOrder} disabled={placing}>{placing ? 'Placing…' : 'Place order'}</button>
           </div>
         </div>
-      )}
+      </div>
     </main>
   );
 }

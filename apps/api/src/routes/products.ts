@@ -32,10 +32,11 @@ const productsPublicQuerySchema = z.object({
   categoryIds: z.string().optional(),
   onSale: z.string().optional(),
   latest: z.string().optional(),
+  noCount: z.string().optional(),
 });
 
 router.get('/', validateQuery(productsPublicQuerySchema), async (req, res) => {
-  const { q, status, take = 20, skip = 0, categoryId, categoryIds, onSale, latest } = (req as any).validated as any;
+  const { q, status, take = 20, skip = 0, categoryId, categoryIds, onSale, latest, noCount } = (req as any).validated as any;
   const where: any = {};
   if (q) where.OR = [
     { title: { contains: q, mode: 'insensitive' } },
@@ -62,7 +63,7 @@ router.get('/', validateQuery(productsPublicQuerySchema), async (req, res) => {
     orderBy = { createdAt: 'desc' };
   }
   
-  const [items, total] = await Promise.all([
+  const promises: any[] = [
     prisma.product.findMany({
       where,
       orderBy,
@@ -80,9 +81,13 @@ router.get('/', validateQuery(productsPublicQuerySchema), async (req, res) => {
         shop: { select: { id: true, name: true, slug: true } },
         images: { orderBy: { position: 'asc' }, take: 1 },
       },
-    }),
-    prisma.product.count({ where }),
-  ]);
+    })
+  ];
+  const skipCount = (noCount === '1' || noCount === 'true');
+  if (!skipCount) promises.push(prisma.product.count({ where }));
+  const results = await Promise.all(promises);
+  const items = results[0];
+  const total = skipCount ? undefined : results[1];
   res.json({ items, total });
 });
 

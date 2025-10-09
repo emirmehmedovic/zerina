@@ -1,5 +1,6 @@
 import { API_URL } from "@/lib/api";
 import CategoriesClient from "./CategoriesClient";
+import { redirect } from "next/navigation";
 type Product = { id: string; title: string; slug: string; priceCents: number; currency: string; images?: { storageKey: string }[] };
 type Category = { id: string; name: string; slug: string };
 
@@ -14,13 +15,18 @@ export default async function CategoryDetailPage({ params, searchParams }: { par
       fetch(`${API_URL}/api/v1/categories/${slug}/products?take=${take}&skip=${skip}` , { cache: 'no-store' }),
       fetch(`${API_URL}/api/v1/categories`, { cache: 'no-store' }),
     ]);
-    if (res.ok) {
-      data = await res.json();
-    }
     if (resCats.ok) {
       const raw = await resCats.json();
       const base = Array.isArray(raw) ? raw : Array.isArray(raw?.items) ? raw.items : [];
-            categories = base.map((c: { id: string; name: string; slug?: string }) => ({ id: c.id, name: c.name, slug: c.slug || c.name?.toLowerCase?.().replace(/[^a-z0-9]+/g,'-') }));
+      categories = base.map((c: { id: string; name: string; slug?: string }) => ({ id: c.id, name: c.name, slug: c.slug || c.name?.toLowerCase?.().replace(/[^a-z0-9]+/g,'-') }));
+      const match = categories.find(c => c.slug === slug);
+      if (match) {
+        // Always redirect slug page to products filtered by categoryId
+        redirect(`/products?categoryId=${match.id}`);
+      }
+    }
+    if (res.ok) {
+      data = await res.json();
     }
   } catch {}
 
@@ -44,7 +50,7 @@ export default async function CategoryDetailPage({ params, searchParams }: { par
             <div className="text-sm text-light-muted dark:text-dark-muted mb-2">Browse categories</div>
             <div className="flex flex-wrap gap-2">
               {categories.map((c) => (
-                <a key={c.id} href={`/categories/${c.slug}`} className={`text-xs px-2 py-1 rounded-full border ${c.slug===slug ? 'bg-white/40 dark:bg-zinc-800/40' : ''}`}>{c.name}</a>
+                <a key={c.id} href={`/products?categoryId=${c.id}`} className={`text-xs px-2 py-1 rounded-full border`}>{c.name}</a>
               ))}
             </div>
           </div>

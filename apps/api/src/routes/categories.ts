@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
+import { z } from 'zod';
+import { requireAuth, requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -10,8 +12,31 @@ router.get('/', async (_req, res) => {
   res.json({ items });
 });
 
+// POST /api/v1/categories — create a category (ADMIN only)
+router.post('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  const schema = z.object({ name: z.string().min(1).max(100) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
+  const { name } = parsed.data;
+  try {
+    const cat = await prisma.category.create({ data: { name } });
+    return res.status(201).json(cat);
+  } catch (err: any) {
+    // If unique constraint exists on name
+    if (err?.code === 'P2002') {
+      return res.status(409).json({ error: 'category_exists' });
+    }
+    console.error('Failed to create category:', err);
+    return res.status(500).json({ error: 'failed_to_create_category' });
+  }
+});
+
 function slugifyName(name: string) {
-  return name.trim().toLowerCase().replace(/\s+/g, '-');
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
 }
 
 // GET /api/v1/categories/:slug/products — list products for a given category slug

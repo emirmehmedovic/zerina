@@ -23,6 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin/products/new", label: "New Product", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
     { href: "/admin/shops", label: "Shops", icon: <Store className="h-4 w-4 mr-2" /> },
     { href: "/admin/admins/new", label: "Create Admin", icon: <UserPlus className="h-4 w-4 mr-2" /> },
+    { href: "/admin/categories", label: "Categories", icon: <Package className="h-4 w-4 mr-2" /> },
   ];
 
   const getPageTitle = () => {
@@ -30,6 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (pathname === "/admin/inventory") return "Inventory Management";
     if (pathname === "/admin/products/new") return "Create New Product";
     if (pathname === "/admin/shops") return "Shops Management";
+    if (pathname === "/admin/categories") return "Categories";
     if (pathname === "/admin/admins/new") return "Create Admin Account";
     return "Admin Panel";
   };

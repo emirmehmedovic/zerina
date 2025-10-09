@@ -49,6 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/orders", label: "Orders", icon: <ClipboardList className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/addresses", label: "My Addresses", icon: <MapPin className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/shop/appearance", label: "Shop Appearance", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
+    // No categories here; categories are managed under Admin only
   ];
 
   const getPageTitle = () => {

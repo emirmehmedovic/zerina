@@ -302,7 +302,7 @@ export default function CategoriesPageClient({ items, latestProducts }: { items:
                   Explore {spotlight?.name || filtered[0].name} through handcrafted pieces and small-batch goods.
                 </p>
               </div>
-              <a href={`/categories/${encodeURIComponent((spotlight?.slug || spotlight?.name || filtered[0].name).toLowerCase().replace(/[^a-z0-9]+/g,'-'))}`} className="inline-flex items-center mt-4 px-4 py-2 rounded-full bg-amber-100/90 hover:bg-amber-100 text-amber-900 font-medium shadow-sm transition w-max">
+              <a href={`/products?categoryId=${encodeURIComponent(spotlight?.id || filtered[0].id)}`} className="inline-flex items-center mt-4 px-4 py-2 rounded-full bg-amber-100/90 hover:bg-amber-100 text-amber-900 font-medium shadow-sm transition w-max">
                 View {spotlight?.name || filtered[0].name}
               </a>
             </div>
@@ -337,7 +337,7 @@ export default function CategoriesPageClient({ items, latestProducts }: { items:
                   const style = getCategoryStyle(cat.name);
                   const Icon = style.icon;
                   return (
-                    <a key={cat.id} href={`/categories/${encodeURIComponent(cat.slug || cat.name.toLowerCase().replace(/[^a-z0-9]+/g,'-'))}`} className="snap-start shrink-0 w-64 rounded-2xl p-5 bg-gradient-to-br from-amber-50/60 via-white/70 to-rose-50/60 border border-white/60 shadow-sm hover:shadow-md transition">
+                    <a key={cat.id} href={`/products?categoryId=${encodeURIComponent(cat.id)}`} className="snap-start shrink-0 w-64 rounded-2xl p-5 bg-gradient-to-br from-amber-50/60 via-white/70 to-rose-50/60 border border-white/60 shadow-sm hover:shadow-md transition">
                       <div className="flex items-center gap-3 mb-2">
                         <div className="p-3 rounded-xl bg-white/80 border border-gray-200/70 shadow-sm"><Icon className={`w-5 h-5 ${style.iconColor}`} /></div>
                         <h3 className="font-semibold text-amber-900 truncate">{cat.name}</h3>
@@ -367,7 +367,7 @@ export default function CategoriesPageClient({ items, latestProducts }: { items:
               return (
                 <a
                   key={cat.id}
-                  href={`/categories/${encodeURIComponent(cat.slug || cat.name.toLowerCase().replace(/[^a-z0-9]+/g,'-'))}`}
+                  href={`/products?categoryId=${encodeURIComponent(cat.id)}`}
                   className={`rounded-2xl p-6 block relative overflow-hidden transition-all duration-300 bg-gradient-to-br from-amber-50/40 via-white/60 to-rose-50/40 border border-white/40 shadow-sm hover:shadow-md hover:border-white/60 ${sizeCls}`}
                 >
                   <div className="relative flex items-start gap-4">
