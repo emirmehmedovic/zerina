@@ -7,6 +7,18 @@ import { validateQuery } from '../utils/validate';
 
 const router = Router();
 
+// POST /api/v1/vendor/upgrade — upgrade current user to VENDOR role
+router.post('/upgrade', requireAuth, async (req, res) => {
+  const user = (req as any).user as { sub: string; role: 'BUYER'|'VENDOR'|'ADMIN' };
+  // If already vendor or admin, nothing to do
+  if (user.role === 'VENDOR' || user.role === 'ADMIN') {
+    return res.json({ ok: true, role: user.role });
+  }
+  // Upgrade only BUYER -> VENDOR
+  const updated = await prisma.user.update({ where: { id: user.sub }, data: { role: 'VENDOR' }, select: { id: true, role: true } });
+  return res.json({ ok: true, role: updated.role });
+});
+
 // GET /api/v1/vendor/overview — stats for the current vendor's shop
 router.get('/overview', requireAuth, async (req, res) => {
   const user = (req as any).user as { sub: string; role: 'BUYER'|'VENDOR'|'ADMIN' };

@@ -2,6 +2,49 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model Conversation {
+  id            String   @id @default(cuid())
+  shopId        String
+  productId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastMessageAt DateTime @default(now())
+
+  shop          Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  product       Product? @relation(fields: [productId], references: [id])
+  participants  ConversationParticipant[]
+  messages      Message[]
+
+  @@index([shopId, lastMessageAt])
+  @@index([productId])
+}
+
+model ConversationParticipant {
+  conversationId String
+  userId         String
+  role           ChatParticipantRole
+  lastReadAt     DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@id([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  body           String   @db.Text
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -43,6 +86,11 @@ enum BlogStatus {
   PUBLISHED
 }
 
+enum ChatParticipantRole {
+  CUSTOMER
+  VENDOR
+}
+
 // MODELS
 
 model User {
@@ -61,6 +109,10 @@ model User {
   addresses     Address[]
   auditLogs     AdminAuditLog[] @relation(name: "AdminActor")
   blogPosts     BlogPost[]
+
+  // Chat relations
+  conversationParticipants ConversationParticipant[]
+  messages                 Message[]
 
   @@index([name])
 }
@@ -85,6 +137,9 @@ model Shop {
   payouts       Payout[]
 
   blogPosts     BlogPost[]
+
+  // Chat relations
+  conversations Conversation[]
 
   @@index([status])
 }
@@ -111,6 +166,9 @@ model Product {
   images       ProductImage[]
   categories   ProductCategory[]
   orderItems   OrderItem[]
+
+  // Chat relations
+  conversations Conversation[]
 
   @@unique([shopId, slug])
   @@index([status, createdAt])

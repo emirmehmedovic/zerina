@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { API_URL } from "@/lib/api";
 import StaticImage from "@/components/StaticImage";
 import VariantSelector from "@/components/VariantSelector";
 import AddToCartButton from "@/components/AddToCartButton";
 import ProductCard from "@/components/ProductCard";
+import ChatWidget from "@/components/chat/ChatWidget";
 
 type Product = {
   id: string;
@@ -32,9 +33,11 @@ export default function ProductDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [related, setRelated] = useState<any[]>([]);
   const [fromShop, setFromShop] = useState<any[]>([]);
+  const [showChat, setShowChat] = useState(false);
   // From vendor carousel controls
   const vendorRef = useRef<HTMLDivElement | null>(null);
   const [vendorPaused, setVendorPaused] = useState(false);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -65,6 +68,12 @@ export default function ProductDetailPage() {
 
     fetchProduct();
   }, [identifier]);
+
+  // Auto-open chat if ?chat=1
+  useEffect(() => {
+    const chat = searchParams?.get('chat');
+    if (chat === '1') setShowChat(true);
+  }, [searchParams]);
 
   // Fetch 'From this vendor' products when product (with shop) is loaded
   useEffect(() => {
@@ -134,6 +143,8 @@ export default function ProductDetailPage() {
                 <div className="w-16 h-16 rounded bg-light-muted/10 dark:bg-dark-muted/10 animate-pulse" />
                 <div className="w-16 h-16 rounded bg-light-muted/10 dark:bg-dark-muted/10 animate-pulse" />
               </div>
+
+            
             </div>
             <div className="card-base card-glass p-4">
               <div className="h-7 w-2/3 rounded bg-light-muted/10 dark:bg-dark-muted/10 animate-pulse mb-3" />
@@ -166,8 +177,11 @@ export default function ProductDetailPage() {
 
   // Split-Screen Gallery Rail
   const allImages = imgs.length ? imgs : (mainImageStorageKey ? [{ storageKey: mainImageStorageKey }] : []);
+  // Safe vendor name for chat label
+  const vendorName = product?.shop?.name ?? 'vendor';
 
   return (
+    <>
     <main className="min-h-screen p-6 sm:p-10">
       <div className="relative w-full px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -233,6 +247,16 @@ export default function ProductDetailPage() {
               ) : (
                 <>{(product.priceCents / 100).toFixed(2)} {product.currency}</>
               )}
+            </div>
+            {/* Chat toggle */}
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={() => setShowChat((v) => !v)}
+                className="px-3 py-2 rounded-md border border-amber-200 text-amber-900 bg-white/70 hover:bg-white"
+              >
+                {showChat ? 'Hide chat' : `Chat with ${vendorName}`}
+              </button>
             </div>
 
             {product.variants && product.variants.length > 0 ? (
@@ -389,5 +413,9 @@ export default function ProductDetailPage() {
         </section>
       )}
     </main>
+    {showChat && (
+      <ChatWidget productId={product.id} vendorName={vendorName} />
+    )}
+    </>
   );
 }

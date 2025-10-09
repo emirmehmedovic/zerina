@@ -155,7 +155,7 @@ export default function HeaderAuth() {
           <div className="py-2 text-sm">
             {me.role === 'VENDOR' && (
               <>
-                <Link href="/dashboard/shop" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
+                <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
                   <LayoutDashboard className="h-4 w-4" /> Dashboard
                 </Link>
                 <Link href="/dashboard/products" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded hover:bg-white/30 dark:hover:bg-zinc-800/30">
@@ -171,18 +171,11 @@ export default function HeaderAuth() {
                 <Shield className="h-4 w-4" /> Admin
               </Link>
             )}
-            <Link href="/dashboard/orders" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
-              <ShoppingBag className="h-4 w-4" /> Orders
-            </Link>
-            <Link href="/dashboard/addresses" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
-              <MapPin className="h-4 w-4" /> Addresses
-            </Link>
-            <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
-              <User className="h-4 w-4" /> Profile
-            </Link>
-            <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
-              <Settings className="h-4 w-4" /> Settings
-            </Link>
+            {me.role === 'BUYER' && (
+              <Link href="/account" onClick={() => setOpen(false)} className="flex items-center gap-2 px-2 py-2 rounded text-amber-900 hover:bg-white/20">
+                <User className="h-4 w-4" /> Account
+              </Link>
+            )}
           </div>
 
           <button onClick={logout} className="w-full inline-flex items-center gap-2 justify-center h-9 rounded-md bg-white/20 hover:bg-white/30 border border-white/30 text-amber-900 mt-1">

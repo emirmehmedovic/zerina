@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { API_URL } from "@/lib/api";
+import { getCsrfToken } from "@/lib/csrf";
 import { Shop } from "@/lib/types";
  
 
 interface CreateShopFormProps {
   onShopCreated: (shop: Shop) => void;
+  beforeCreate?: () => Promise<void>;
 }
 
-export default function CreateShopForm({ onShopCreated }: CreateShopFormProps) {
+export default function CreateShopForm({ onShopCreated, beforeCreate }: CreateShopFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -20,15 +22,29 @@ export default function CreateShopForm({ onShopCreated }: CreateShopFormProps) {
     setError(null);
     setSubmitting(true);
     try {
+      // Run prerequisite action if provided (e.g., account registration)
+      if (beforeCreate) {
+        await beforeCreate();
+      }
+      const csrf = await getCsrfToken();
+      // Ensure user is a vendor (BUYER -> VENDOR upgrade)
+      await fetch(`${API_URL}/api/v1/vendor/upgrade`, {
+        method: "POST",
+        headers: { "X-CSRF-Token": csrf },
+        credentials: "include",
+      }).catch(()=>{});
+
       const res = await fetch(`${API_URL}/api/v1/shops`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
         credentials: "include",
         body: JSON.stringify({ name, description }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `Failed to create shop (${res.status})`);
+        let msg = body?.error || `Failed to create shop (${res.status})`;
+        if (res.status === 403) msg = 'You need a vendor account to create a shop. Please try again.';
+        throw new Error(msg);
       }
       const newShop = (await res.json()) as Shop;
       onShopCreated(newShop);

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { API_URL } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 import { Store } from "lucide-react";
 import AddToCartButton from "./AddToCartButton";
@@ -18,10 +19,14 @@ interface ProductCardProps {
     isOnSale?: boolean;
     originalPriceCents?: number;
     shop?: { name: string };
+    hasVariants?: boolean;
+    minPriceCents?: number;
+    maxPriceCents?: number;
   };
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter();
   // Get image URL
   const storageKey = product.images?.[0]?.storageKey || "";
   let imageUrl = "/placeholder-product.svg";
@@ -37,7 +42,13 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   return (
-    <Link href={`/products/${product.slug}`} className="group block">
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(`/products/${product.slug}`)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/products/${product.slug}`); } }}
+      className="group block cursor-pointer"
+    >
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-50/30 via-white/40 to-amber-50/30 backdrop-blur-lg border border-white/20 shadow-sm transition-all duration-300 hover:shadow-lg hover:border-white/30 h-full flex flex-col">
         {/* Image Container */}
         <div className="relative h-[280px] overflow-hidden p-2 sm:p-3">
@@ -83,7 +94,9 @@ export default function ProductCard({ product }: ProductCardProps) {
           <div className="mt-auto flex items-end justify-between">
             <div className="flex items-center gap-2">
                 <span className="text-xl leading-none font-bold text-gray-900 tabular-nums">
-                    ${(product.priceCents / 100).toFixed(2)}
+                    {product.hasVariants && product.minPriceCents != null && product.maxPriceCents != null && product.minPriceCents !== product.maxPriceCents
+                      ? `From ${(product.minPriceCents / 100).toFixed(2)}`
+                      : `$${(product.priceCents / 100).toFixed(2)}`}
                 </span>
                 <span className="text-[11px] leading-none uppercase tracking-wide text-amber-900/70 bg-white/70 border border-rose-100/70 rounded px-1.5 py-0.5 align-middle">
                   {product.currency}
@@ -101,21 +114,27 @@ export default function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 translate-y-2 group-hover:translate-y-0 mt-2">
-            <AddToCartButton 
-                product={{
-                    productId: product.id,
-                    title: product.title,
-                    slug: product.slug,
-                    priceCents: product.priceCents,
-                    currency: product.currency,
-                    image: imageUrl
-                }}
-                variant="soft"
-                className="w-full !py-2 !text-sm"
-            />
+            {product.hasVariants ? (
+              <Link href={`/products/${product.slug}`} className="block w-full text-center rounded-lg border border-rose-200/70 bg-white/70 hover:bg-white text-amber-900 font-semibold text-sm py-2 transition-colors">
+                View options
+              </Link>
+            ) : (
+              <AddToCartButton 
+                  product={{
+                      productId: product.id,
+                      title: product.title,
+                      slug: product.slug,
+                      priceCents: product.priceCents,
+                      currency: product.currency,
+                      image: imageUrl
+                  }}
+                  variant="soft"
+                  className="w-full !py-2 !text-sm"
+              />
+            )}
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

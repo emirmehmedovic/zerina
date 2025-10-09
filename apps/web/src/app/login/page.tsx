@@ -30,7 +30,7 @@ export default function LoginPage() {
         throw new Error(body?.error || `Login failed (${res.status})`);
       }
       push({ type: "success", title: "Signed in", message: "Welcome back!" });
-      router.push("/");
+      router.push("/account");
       router.refresh();
     } catch (err: unknown) {
       if (err instanceof Error) {

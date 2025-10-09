@@ -80,13 +80,21 @@ router.get('/', validateQuery(productsPublicQuerySchema), async (req, res) => {
         currency: true,
         shop: { select: { id: true, name: true, slug: true } },
         images: { orderBy: { position: 'asc' }, take: 1 },
+        variants: { select: { priceCents: true } },
       },
     })
   ];
   const skipCount = (noCount === '1' || noCount === 'true');
   if (!skipCount) promises.push(prisma.product.count({ where }));
   const results = await Promise.all(promises);
-  const items = results[0];
+  const items = (results[0] as any[]).map((p) => {
+    const variantPrices: number[] = Array.isArray(p?.variants) ? p.variants.map((v: any) => v.priceCents) : [];
+    const hasVariants = variantPrices.length > 0;
+    const minPriceCents = hasVariants ? Math.min(...variantPrices) : p.priceCents;
+    const maxPriceCents = hasVariants ? Math.max(...variantPrices) : p.priceCents;
+    const { variants, ...rest } = p;
+    return { ...rest, hasVariants, minPriceCents, maxPriceCents };
+  });
   const total = skipCount ? undefined : results[1];
   res.json({ items, total });
 });
@@ -262,10 +270,16 @@ router.post('/', requireAuth, requireRole('VENDOR'), async (req, res) => {
     status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
     categoryIds: z.array(z.string()).optional(),
     imagePaths: z.array(z.string()).optional(), // Add support for image paths
+    variants: z.array(z.object({
+      sku: z.string().optional(),
+      priceCents: z.number().int().min(0),
+      stock: z.number().int().min(0).default(0),
+      attributes: z.record(z.string()).default({}),
+    })).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', code: 'INVALID_BODY', details: parsed.error.flatten() });
-  const { title, description, priceCents, currency, stock = 0, status = 'DRAFT', categoryIds = [], imagePaths = [] } = parsed.data;
+  const { title, description, priceCents, currency, stock = 0, status = 'DRAFT', categoryIds = [], imagePaths = [], variants = [] } = parsed.data;
   const slug = await uniqueProductSlug(shop.id, title);
   const product = await prisma.product.create({
     data: {
@@ -282,6 +296,32 @@ router.post('/', requireAuth, requireRole('VENDOR'), async (req, res) => {
       },
     },
   });
+
+  // Create variants if provided, else create a default variant mirroring the base fields
+  try {
+    if (Array.isArray(variants) && variants.length > 0) {
+      await prisma.productVariant.createMany({
+        data: variants.map(v => ({
+          productId: product.id,
+          sku: v.sku,
+          priceCents: v.priceCents,
+          stock: v.stock ?? 0,
+          attributes: v.attributes || {},
+        })),
+      });
+      // Derive product summary fields from variants
+      const created = await prisma.productVariant.findMany({ where: { productId: product.id }, select: { priceCents: true, stock: true } });
+      const minPrice = created.length ? Math.min(...created.map(c => c.priceCents)) : priceCents;
+      const totalStock = created.reduce((s, c) => s + (c.stock || 0), 0);
+      await prisma.product.update({ where: { id: product.id }, data: { priceCents: minPrice, stock: totalStock } });
+    } else {
+      await prisma.productVariant.create({
+        data: { productId: product.id, priceCents, stock: stock ?? 0, attributes: {} },
+      });
+    }
+  } catch (err) {
+    console.error('Failed to create variants:', err);
+  }
   
   // Add images if provided
   if (imagePaths.length > 0) {
@@ -400,6 +440,81 @@ router.delete('/:id', requireAuth, requireRole('VENDOR'), async (req, res) => {
     console.error('Error deleting product:', error);
     res.status(500).json({ error: 'Failed to delete product' });
   }
+});
+
+// Helper: recalc product summary fields from variants
+async function recalcProductSummary(productId: string) {
+  const vars = await prisma.productVariant.findMany({ where: { productId }, select: { priceCents: true, stock: true } });
+  if (vars.length === 0) return;
+  const minPrice = Math.min(...vars.map(v => v.priceCents));
+  const totalStock = vars.reduce((s, v) => s + (v.stock || 0), 0);
+  await prisma.product.update({ where: { id: productId }, data: { priceCents: minPrice, stock: totalStock } });
+}
+
+// GET /api/v1/products/:id/variants - list variants (public)
+router.get('/:id/variants', async (req, res) => {
+  const { id } = req.params;
+  const product = await prisma.product.findUnique({ where: { id }, select: { id: true } });
+  if (!product) return notFound(res, 'Product not found');
+  const items = await prisma.productVariant.findMany({ where: { productId: id }, orderBy: { priceCents: 'asc' } });
+  res.json({ items });
+});
+
+// POST /api/v1/products/:id/variants - create (vendor-owned)
+router.post('/:id/variants', requireAuth, requireRole('VENDOR'), async (req, res) => {
+  const user = (req as any).user as { sub: string };
+  const { id } = req.params;
+  const shop = await prisma.shop.findFirst({ where: { ownerId: user.sub } });
+  if (!shop) return notFound(res, 'shop_not_found');
+  const product = await prisma.product.findFirst({ where: { id, shopId: shop.id } });
+  if (!product) return notFound(res, 'product_not_found');
+  const schema = z.object({
+    attributes: z.record(z.union([z.string(), z.number()])).default({}),
+    priceCents: z.number().int().min(0),
+    stock: z.number().int().min(0).default(0),
+    sku: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return badRequest(res, 'invalid_body');
+  const v = await prisma.productVariant.create({
+    data: { productId: id, attributes: parsed.data.attributes, priceCents: parsed.data.priceCents, stock: parsed.data.stock, sku: parsed.data.sku },
+  });
+  await recalcProductSummary(id);
+  res.status(201).json(v);
+});
+
+// PATCH /api/v1/products/:id/variants/:variantId - update
+router.patch('/:id/variants/:variantId', requireAuth, requireRole('VENDOR'), async (req, res) => {
+  const user = (req as any).user as { sub: string };
+  const { id, variantId } = req.params;
+  const shop = await prisma.shop.findFirst({ where: { ownerId: user.sub } });
+  if (!shop) return notFound(res, 'shop_not_found');
+  const product = await prisma.product.findFirst({ where: { id, shopId: shop.id } });
+  if (!product) return notFound(res, 'product_not_found');
+  const schema = z.object({
+    priceCents: z.number().int().min(0).optional(),
+    stock: z.number().int().min(0).optional(),
+    sku: z.string().optional(),
+    attributes: z.record(z.union([z.string(), z.number()])).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return badRequest(res, 'invalid_body');
+  const v = await prisma.productVariant.update({ where: { id: variantId }, data: parsed.data });
+  await recalcProductSummary(id);
+  res.json(v);
+});
+
+// DELETE /api/v1/products/:id/variants/:variantId - delete
+router.delete('/:id/variants/:variantId', requireAuth, requireRole('VENDOR'), async (req, res) => {
+  const user = (req as any).user as { sub: string };
+  const { id, variantId } = req.params;
+  const shop = await prisma.shop.findFirst({ where: { ownerId: user.sub } });
+  if (!shop) return notFound(res, 'shop_not_found');
+  const product = await prisma.product.findFirst({ where: { id, shopId: shop.id } });
+  if (!product) return notFound(res, 'product_not_found');
+  await prisma.productVariant.delete({ where: { id: variantId } });
+  await recalcProductSummary(id);
+  res.json({ success: true });
 });
 
 export default router;

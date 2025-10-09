@@ -24,6 +24,7 @@ import blogRouter from './routes/blog';
 import accountRoutes from './routes/account';
 import productImagesRouter from './routes/product-images';
 import productVariantsRouter from './routes/product-variants';
+import chatRouter from './routes/chat';
 import { csrfProtect } from './middleware/csrf';
 
 const app = express();
@@ -103,6 +104,7 @@ app.use('/api/v1/account', accountRoutes);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/admin/analytics', adminAnalyticsRouter);
 app.use('/api/v1/admin/analytics-v2', adminAnalyticsV2Router);
+app.use('/api/v1/chat', chatRouter);
 
 // Product related routes
 app.use('/api/v1/products', productImagesRouter);

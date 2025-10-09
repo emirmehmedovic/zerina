@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { API_URL } from "@/lib/api";
 import { useToast } from "@/components/ToastProvider";
@@ -43,7 +43,7 @@ export default function EditProductPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priceCents, setPriceCents] = useState<number>(0);
-  const [currency, setCurrency] = useState("EUR");
+  const [currency, setCurrency] = useState("AED");
   const [stock, setStock] = useState<number>(0);
   const [status, setStatus] = useState<Product["status"]>("DRAFT");
   const [uploading, setUploading] = useState(false);
@@ -69,7 +69,8 @@ export default function EditProductPage() {
           setTitle(data.title);
           setDescription(data.description);
           setPriceCents(data.priceCents);
-          setCurrency(data.currency);
+          // Force AED display per requirement
+          setCurrency("AED");
           setStock(data.stock);
           setStatus(data.status);
           setImages((data.images || []).sort((a, b) => a.position - b.position));
@@ -125,6 +126,20 @@ export default function EditProductPage() {
     }
   };
 
+  // Debounced UI mirrors
+  const [titleInput, setTitleInput] = useState("");
+  const [descriptionInput, setDescriptionInput] = useState("");
+  const [priceDisplay, setPriceDisplay] = useState("0.00");
+  const [stockInput, setStockInput] = useState("0");
+  useEffect(() => setTitleInput(title), [title]);
+  useEffect(() => setDescriptionInput(description), [description]);
+  useEffect(() => setPriceDisplay((priceCents/100).toFixed(2)), [priceCents]);
+  useEffect(() => setStockInput(String(stock)), [stock]);
+  useEffect(() => { const t = setTimeout(()=> setTitle(titleInput), 300); return () => clearTimeout(t); }, [titleInput]);
+  useEffect(() => { const t = setTimeout(()=> setDescription(descriptionInput), 300); return () => clearTimeout(t); }, [descriptionInput]);
+  useEffect(() => { const t = setTimeout(()=> { const v=parseFloat(priceDisplay||'0'); setPriceCents(Math.round((isNaN(v)?0:v)*100)); }, 300); return () => clearTimeout(t); }, [priceDisplay]);
+  useEffect(() => { const t = setTimeout(()=> setStock(Math.max(0, Number(stockInput)||0)), 300); return () => clearTimeout(t); }, [stockInput]);
+
   const onSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -140,7 +155,7 @@ export default function EditProductPage() {
           "X-CSRF-Token": csrfToken 
         },
         credentials: "include",
-        body: JSON.stringify({ title, description, priceCents, currency, stock, status }),
+        body: JSON.stringify({ title, description, priceCents, currency: "AED", stock, status }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
@@ -338,7 +353,7 @@ export default function EditProductPage() {
     }
   };
 
-  const onUpdateVariant = async (v: Variant, patch: Partial<Pick<Variant, 'priceCents'|'stock'|'sku'>>) => {
+  const onUpdateVariant = async (v: Variant, patch: Partial<Pick<Variant, 'priceCents'|'stock'|'sku'>> & { attributes?: Record<string, string | number> }) => {
     try {
       // Dohvati CSRF token za zaštitu
       const csrfToken = await getCsrfToken();
@@ -393,15 +408,18 @@ export default function EditProductPage() {
   if (error || !product) return <main className="p-6">{error || "Not found"}</main>;
 
   return (
-    <main>
-      <h1 className="text-3xl font-bold mb-4">Edit product</h1>
-      <form onSubmit={onSave} className="grid grid-cols-1 gap-4 max-w-xl card-base card-glass">
+    <main className="relative">
+      {/* Warm admin-style decorative background */}
+      <div className="absolute top-0 right-0 w-[420px] h-[420px] bg-gradient-to-br from-red-500/10 to-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[420px] h-[420px] bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-full blur-3xl pointer-events-none" />
+      <h1 className="text-2xl font-bold mb-4 text-white">Edit product</h1>
+      <form onSubmit={onSave} className="space-y-4 max-w-3xl">
         <div>
-          <label className="block text-sm mb-1">Categories</label>
+          <label className="block text-sm mb-1 text-white/90">Categories</label>
           {!Array.isArray(allCategories) || allCategories.length === 0 ? (
             <div className="text-sm text-light-muted dark:text-dark-muted">No categories yet.</div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 rounded-md border border-white/10 p-3 bg-black/20 backdrop-blur-md">
               <div className="flex flex-wrap gap-2">
                 {categoryIds.length === 0 && (
                   <span className="text-xs text-light-muted dark:text-dark-muted">No categories selected</span>
@@ -439,8 +457,8 @@ export default function EditProductPage() {
             </div>
           )}
         </div>
-        <div>
-          <label className="block text-sm mb-2">Images</label>
+        <div className="rounded-md border border-white/10 p-3 bg-black/20 backdrop-blur-md">
+          <label className="block text-sm mb-2 text-white/90">Images</label>
           <div className="flex items-center gap-3 mb-2">
             <input id="image" type="file" accept="image/*" onChange={(e) => e.target.files && onUpload(e.target.files[0])} />
             {uploading && <div className="text-sm text-light-muted dark:text-dark-muted">Uploading...</div>}
@@ -461,31 +479,31 @@ export default function EditProductPage() {
             </div>
           )}
         </div>
-        <div>
-          <label className="block text-sm mb-1" htmlFor="title">Title</label>
-          <input id="title" className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <div className="rounded-md border border-white/10 p-3 bg-black/20 backdrop-blur-md">
+          <label className="block text-sm mb-1 text-white/90" htmlFor="title">Title</label>
+          <input id="title" className="w-full border border-white/10 rounded-md px-3 py-2 bg-black/30" value={titleInput} onChange={(e) => setTitleInput(e.target.value)} required />
         </div>
-        <div>
-          <label className="block text-sm mb-1" htmlFor="description">Description</label>
-          <textarea id="description" rows={4} className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30" value={description} onChange={(e) => setDescription(e.target.value)} required />
+        <div className="rounded-md border border-white/10 p-3 bg-black/20 backdrop-blur-md">
+          <label className="block text-sm mb-1 text-white/90" htmlFor="description">Description</label>
+          <textarea id="description" rows={4} className="w-full border border-white/10 rounded-md px-3 py-2 bg-black/30" value={descriptionInput} onChange={(e) => setDescriptionInput(e.target.value)} required />
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-sm mb-1" htmlFor="price">Price (cents)</label>
-            <input id="price" type="number" min={0} className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30" value={priceCents} onChange={(e) => setPriceCents(Number(e.target.value))} />
+            <label className="block text-sm mb-1 text-white/90" htmlFor="price">Price</label>
+            <input id="price" type="number" step="0.01" min={0} className="w-full border border-white/10 rounded-md px-3 py-2 bg-black/30" value={priceDisplay} onChange={(e) => setPriceDisplay(e.target.value)} />
           </div>
           <div>
-            <label className="block text-sm mb-1" htmlFor="currency">Currency</label>
-            <input id="currency" className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30" value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} />
+            <label className="block text-sm mb-1 text-white/90">Currency</label>
+            <div className="w-full border border-white/10 rounded-md px-3 py-2 bg-black/30 text-zinc-200">AED</div>
           </div>
           <div>
-            <label className="block text-sm mb-1" htmlFor="stock">Stock</label>
-            <input id="stock" type="number" min={0} className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30" value={stock} onChange={(e) => setStock(Number(e.target.value))} />
+            <label className="block text-sm mb-1 text-white/90" htmlFor="stock">Stock</label>
+            <input id="stock" type="number" min={0} className="w-full border border-white/10 rounded-md px-3 py-2 bg-black/30" value={stockInput} onChange={(e) => setStockInput(e.target.value)} />
           </div>
         </div>
         <div>
-          <label className="block text-sm mb-1" htmlFor="status">Status</label>
-          <select id="status" className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 backdrop-blur-sm dark:bg-zinc-800/30" value={status} onChange={(e) => setStatus(e.target.value as Product["status"]) }>
+          <label className="block text-sm mb-1 text-white/90" htmlFor="status">Status</label>
+          <select id="status" className="w-full border border-white/10 rounded-md px-3 py-2 bg-black/30" value={status} onChange={(e) => setStatus(e.target.value as Product["status"]) }>
             <option value="DRAFT">DRAFT</option>
             <option value="PUBLISHED">PUBLISHED</option>
             <option value="ARCHIVED">ARCHIVED</option>
@@ -493,37 +511,34 @@ export default function EditProductPage() {
           </select>
         </div>
         <div>
-          <button className="btn-primary" disabled={saving}>{saving ? "Saving..." : "Save"}</button>
+          <button className="px-4 py-2 rounded text-white font-semibold bg-gradient-to-r from-red-500/40 via-orange-500/40 to-red-500/40 hover:from-red-500/50 hover:to-orange-500/50 border border-white/10" disabled={saving}>{saving ? "Saving..." : "Save"}</button>
         </div>
-        <div>
-          <label className="block text-sm mb-1">Variants</label>
-          <div className="card-base p-3 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="rounded-md border border-white/10 p-3 bg-black/20 backdrop-blur-md">
+          <label className="block text-sm mb-1 text-white/90">Variants</label>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 rounded-md border border-white/10 p-3">
               <div className="md:col-span-2">
-                <label className="block text-xs mb-1">Attributes (JSON)</label>
-                <textarea rows={3} className="w-full border border-light-glass-border rounded-md px-3 py-2 bg-white/30 dark:bg-zinc-800/30 text-xs" value={varAttrsText} onChange={(e) => setVarAttrsText(e.target.value)} placeholder='{"size":"M","color":"Black"}' />
+                <label className="block text-xs mb-1 text-white/80">Add attribute</label>
+                <div className="text-xs text-light-muted dark:text-dark-muted">Use the per-variant editor below to manage attributes after creation.</div>
               </div>
               <div>
-                <label className="block text-xs mb-1">Price (cents)</label>
-                <input type="number" min={0} className="w-full border border-light-glass-border rounded-md px-2 py-1 bg-white/30 dark:bg-zinc-800/30 text-sm" value={varPriceCents} onChange={(e) => setVarPriceCents(Number(e.target.value))} />
+                <label className="block text-xs mb-1 text-white/80">Price</label>
+                <input type="number" step="0.01" min={0} className="w-full border border-white/10 rounded-md px-2 py-1 bg-black/30 text-sm" value={(varPriceCents/100).toString()} onChange={(e) => setVarPriceCents(Math.round((parseFloat(e.target.value||'0')||0)*100))} />
               </div>
               <div>
-                <label className="block text-xs mb-1">Stock</label>
-                <input type="number" min={0} className="w-full border border-light-glass-border rounded-md px-2 py-1 bg-white/30 dark:bg-zinc-800/30 text-sm" value={varStock} onChange={(e) => setVarStock(Number(e.target.value))} />
+                <label className="block text-xs mb-1 text-white/80">Stock</label>
+                <input type="number" min={0} className="w-full border border-white/10 rounded-md px-2 py-1 bg-black/30 text-sm" value={varStock} onChange={(e) => setVarStock(Number(e.target.value))} />
               </div>
               <div>
-                <label className="block text-xs mb-1">SKU</label>
-                <input className="w-full border border-light-glass-border rounded-md px-2 py-1 bg-white/30 dark:bg-zinc-800/30 text-sm" value={varSku} onChange={(e) => setVarSku(e.target.value)} />
+                <label className="block text-xs mb-1 text-white/80">SKU</label>
+                <input className="w-full border border-white/10 rounded-md px-2 py-1 bg-black/30 text-sm" value={varSku} onChange={(e) => setVarSku(e.target.value)} />
               </div>
-              <div className="md:col-span-4">
+              <div className="md:col-span-5">
                 <button 
-                  type="button" 
-                  className="btn-secondary" 
+                  type="button"
+                  className="px-3 py-2 rounded border border-white/10 text-white text-sm bg-gradient-to-r from-red-500/20 to-orange-500/20"
                   disabled={creatingVar}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onCreateVariant(e as unknown as React.FormEvent);
-                  }}
+                  onClick={(e) => { e.preventDefault(); onCreateVariant(e as unknown as React.FormEvent); }}
                 >
                   {creatingVar ? 'Adding…' : 'Add variant'}
                 </button>
@@ -533,37 +548,72 @@ export default function EditProductPage() {
             {variants.length === 0 ? (
               <div className="text-sm text-light-muted dark:text-dark-muted">No variants yet.</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left">
-                      <th className="py-1">Attributes</th>
-                      <th className="py-1">Price</th>
-                      <th className="py-1">Stock</th>
-                      <th className="py-1">SKU</th>
-                      <th className="py-1">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {variants.map((v) => (
-                      <tr key={v.id} className="border-t border-light-glass-border">
-                        <td className="py-1 pr-2 max-w-[280px]"><code className="text-xs break-words">{JSON.stringify(v.attributes)}</code></td>
-                        <td className="py-1 pr-2">
-                          <input type="number" min={0} className="w-24 border border-light-glass-border rounded-md px-2 py-1 bg-white/30 dark:bg-zinc-800/30 text-sm" defaultValue={v.priceCents} onBlur={(e) => onUpdateVariant(v, { priceCents: Number(e.target.value) })} />
-                        </td>
-                        <td className="py-1 pr-2">
-                          <input type="number" min={0} className="w-20 border border-light-glass-border rounded-md px-2 py-1 bg-white/30 dark:bg-zinc-800/30 text-sm" defaultValue={v.stock} onBlur={(e) => onUpdateVariant(v, { stock: Number(e.target.value) })} />
-                        </td>
-                        <td className="py-1 pr-2">
-                          <input className="w-28 border border-light-glass-border rounded-md px-2 py-1 bg-white/30 dark:bg-zinc-800/30 text-sm" defaultValue={v.sku || ''} onBlur={(e) => onUpdateVariant(v, { sku: e.target.value })} />
-                        </td>
-                        <td className="py-1 pr-2">
-                          <button type="button" className="text-sm underline underline-offset-4 text-rose-600" onClick={() => onDeleteVariant(v.id)}>Delete</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-3">
+                {variants.map((v) => {
+                  // local debounced editors
+                  const priceTimer = { current: undefined as any };
+                  const stockTimer = { current: undefined as any };
+                  const skuTimer = { current: undefined as any };
+                  const [k, setK] = [undefined, undefined] as any; // placeholder to avoid TS complaints in inline map
+                  const attrs = v.attributes || {} as Record<string, any>;
+                  const pairs = Object.keys(attrs).map((key) => `${key}=${attrs[key]}`);
+                  return (
+                    <div key={v.id} className="rounded border border-white/10 p-3">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
+                        <div className="md:col-span-2">
+                          <div className="text-xs text-white/80 mb-1">Attributes</div>
+                          <div className="flex flex-wrap gap-2">
+                            {pairs.length === 0 ? (
+                              <span className="text-xs text-light-muted dark:text-dark-muted">None</span>
+                            ) : pairs.map((p) => (
+                              <span key={p} className="inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full bg-white/10">
+                                {p}
+                                <button type="button" onClick={async ()=>{
+                                  const [rmKey] = p.split('=');
+                                  const next: Record<string, any> = { ...attrs };
+                                  delete next[rmKey];
+                                  await onUpdateVariant(v, { attributes: next as any });
+                                }} className="text-zinc-400 hover:text-white">×</button>
+                              </span>
+                            ))}
+                          </div>
+                          {/* Simple add key/value */}
+                          <div className="mt-2 flex items-center gap-2">
+                            <input placeholder="Key" className="px-2 py-1 rounded bg-black/30 border border-white/10 text-xs" id={`key-${v.id}`} />
+                            <input placeholder="Value" className="px-2 py-1 rounded bg-black/30 border border-white/10 text-xs" id={`val-${v.id}`} />
+                            <button type="button" className="text-xs px-2 py-1 rounded border border-white/10 hover:bg-white/10" onClick={async ()=>{
+                              const keyEl = document.getElementById(`key-${v.id}`) as HTMLInputElement | null;
+                              const valEl = document.getElementById(`val-${v.id}`) as HTMLInputElement | null;
+                              const key = keyEl?.value.trim() || '';
+                              const val = valEl?.value.trim() || '';
+                              if (!key || !val) return;
+                              const next = { ...(attrs||{}) } as Record<string, any>;
+                              next[key] = val;
+                              await onUpdateVariant(v, { attributes: next as any });
+                              if (keyEl) keyEl.value = '';
+                              if (valEl) valEl.value = '';
+                            }}>Add</button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-white/80 mb-1">Price</label>
+                          <input type="number" step="0.01" min={0} className="w-full border border-white/10 rounded-md px-2 py-1 bg-black/30 text-sm" defaultValue={(v.priceCents/100).toString()} onBlur={(e) => onUpdateVariant(v, { priceCents: Math.round((parseFloat(e.target.value||'0')||0)*100) })} />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-white/80 mb-1">Stock</label>
+                          <input type="number" min={0} className="w-full border border-white/10 rounded-md px-2 py-1 bg-black/30 text-sm" defaultValue={v.stock} onBlur={(e) => onUpdateVariant(v, { stock: Number(e.target.value) })} />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-white/80 mb-1">SKU</label>
+                          <input className="w-full border border-white/10 rounded-md px-2 py-1 bg-black/30 text-sm" defaultValue={v.sku || ''} onBlur={(e) => onUpdateVariant(v, { sku: e.target.value })} />
+                        </div>
+                        <div>
+                          <button type="button" className="text-sm underline underline-offset-4 text-rose-500" onClick={() => onDeleteVariant(v.id)}>Delete</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

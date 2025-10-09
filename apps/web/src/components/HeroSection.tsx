@@ -84,7 +84,7 @@ export default function HeroSection({
                   Stand out with bold products and sharp messaging.
                 </p>
                 <Link 
-                  href="/dashboard/shop" 
+                  href="/become-a-seller" 
                   className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-orange-100/80 to-amber-100/80 hover:from-orange-200/80 hover:to-amber-200/80 text-gray-800 font-medium text-base rounded-full shadow-sm hover:shadow transition-all duration-200"
                 >
                   <span>Get Started</span>

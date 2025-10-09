@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { API_URL } from "@/lib/api";
-import { LayoutDashboard, BarChart2, Package, ShoppingBag, ClipboardList, MapPin, Home, Menu, X, LifeBuoy, User, Shield, LogOut, FileText } from "lucide-react";
+import { LayoutDashboard, BarChart2, Package, ShoppingBag, ClipboardList, MapPin, Home, Menu, X, LifeBuoy, User, Shield, LogOut, FileText, MessageSquare } from "lucide-react";
 import { Menu as HeadlessMenu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import LogoutButton from "@/components/LogoutButton";
@@ -42,6 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navItems = [
     { href: "/dashboard", label: "Overview", icon: <LayoutDashboard className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/analytics", label: "Analytics", icon: <BarChart2 className="h-4 w-4 mr-2" /> },
+    { href: "/dashboard/inbox", label: "Inbox", icon: <MessageSquare className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/products", label: "Products", icon: <Package className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/products/new", label: "New Product", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/blog", label: "Blog", icon: <FileText className="h-4 w-4 mr-2" /> },
