@@ -26,4 +26,8 @@ export const ENV = {
   cookieName: process.env.COOKIE_NAME ?? 'webshop_session',
   cookieSecure: (process.env.COOKIE_SECURE ?? 'false') === 'true',
   databaseUrl: required('DATABASE_URL'),
+  // Optional Google OAuth configuration
+  googleClientId: process.env.GOOGLE_CLIENT_ID,
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  googleRedirectUri: process.env.GOOGLE_REDIRECT_URI,
 };

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { API_URL } from "@/lib/api";
+import { getCsrfToken } from "@/lib/csrf";
 import StaticImage from "@/components/StaticImage";
 import VariantSelector from "@/components/VariantSelector";
 import AddToCartButton from "@/components/AddToCartButton";
@@ -34,6 +35,14 @@ export default function ProductDetailPage() {
   const [related, setRelated] = useState<any[]>([]);
   const [fromShop, setFromShop] = useState<any[]>([]);
   const [showChat, setShowChat] = useState(false);
+  // Reviews
+  const [reviews, setReviews] = useState<{ items: any[]; average: number | null; count: number } | null>(null);
+  const [me, setMe] = useState<{ id: string; name?: string } | null>(null);
+  const [revRating, setRevRating] = useState<number>(5);
+  const [revTitle, setRevTitle] = useState<string>("");
+  const [revBody, setRevBody] = useState<string>("");
+  const [revSubmitting, setRevSubmitting] = useState(false);
+  const [revError, setRevError] = useState<string | null>(null);
   // From vendor carousel controls
   const vendorRef = useRef<HTMLDivElement | null>(null);
   const [vendorPaused, setVendorPaused] = useState(false);
@@ -68,6 +77,59 @@ export default function ProductDetailPage() {
 
     fetchProduct();
   }, [identifier]);
+
+  // Fetch reviews and current user once product is known (by id)
+  useEffect(() => {
+    const pid = product?.id;
+    if (!pid) return;
+    let active = true;
+    (async () => {
+      try {
+        const [revRes, meRes] = await Promise.all([
+          fetch(`${API_URL}/api/v1/products/${pid}/reviews`, { cache: 'no-store', credentials: 'include' }),
+          fetch(`${API_URL}/api/v1/users/me`, { credentials: 'include' }).catch(() => ({ ok: false })) as any,
+        ]);
+        if (revRes.ok) {
+          const r = await revRes.json();
+          if (active) setReviews(r);
+        } else if (active) setReviews({ items: [], average: null, count: 0 });
+        if ((meRes as Response)?.ok) {
+          const u = await (meRes as Response).json();
+          if (active) setMe(u);
+        } else if (active) setMe(null);
+      } catch {
+        if (active) setReviews({ items: [], average: null, count: 0 });
+      }
+    })();
+    return () => { active = false; };
+  }, [product?.id]);
+
+  const submitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product?.id) return;
+    setRevError(null);
+    setRevSubmitting(true);
+    try {
+      const csrf = await getCsrfToken();
+      const res = await fetch(`${API_URL}/api/v1/products/${product.id}/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+        credentials: 'include',
+        body: JSON.stringify({ rating: revRating, title: revTitle || undefined, body: revBody || undefined }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Failed to submit review (${res.status})`);
+      }
+      // Refresh reviews
+      const revRes = await fetch(`${API_URL}/api/v1/products/${product.id}/reviews`, { cache: 'no-store', credentials: 'include' });
+      if (revRes.ok) setReviews(await revRes.json());
+    } catch (err: any) {
+      setRevError(err?.message || 'Failed to submit review');
+    } finally {
+      setRevSubmitting(false);
+    }
+  };
 
   // Auto-open chat if ?chat=1
   useEffect(() => {
@@ -330,6 +392,8 @@ export default function ProductDetailPage() {
           </div>
         </div>
       )}
+      
+
       {/* Related picks */}
       {related.length > 0 && (
         <section className="mt-10 px-4 sm:px-6 lg:px-8">
@@ -355,6 +419,9 @@ export default function ProductDetailPage() {
           </div>
         </section>
       )}
+      
+      
+      
       {/* From this vendor - infinite carousel (styled like Overall Picks) */}
       {fromShop.length > 0 && (
         <section className="mt-10 px-4 sm:px-6 lg:px-8">
@@ -412,6 +479,84 @@ export default function ProductDetailPage() {
           </div>
         </section>
       )}
+      {/* Reviews */}
+      <section className="mt-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-amber-900">Reviews</h2>
+            <div className="text-xs text-amber-900/70">
+              {reviews?.count ? `${reviews.average?.toFixed(1) ?? '-'} / 5 • ${reviews.count} reviews` : 'No reviews yet'}
+            </div>
+          </div>
+          {/* Cards rail */}
+          <div className="relative overflow-x-auto whitespace-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="inline-flex gap-4 pr-4 min-w-full snap-x snap-mandatory">
+              {(reviews?.items || []).map((rv) => (
+                <div key={rv.id} className="snap-start shrink-0 w-80">
+                  <div className="rounded-2xl bg-white/85 backdrop-blur-sm border border-amber-100 p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-amber-100 text-amber-900 flex items-center justify-center text-sm font-semibold">
+                          {(rv.user?.name || rv.user?.email || 'U').slice(0,1).toUpperCase()}
+                        </div>
+                        <div className="text-sm">
+                          <div className="font-semibold text-amber-900 leading-tight">{rv.user?.name || rv.user?.email || 'User'}</div>
+                          {rv.title && <div className="text-xs text-amber-900/70 leading-tight">{rv.title}</div>}
+                        </div>
+                      </div>
+                      <div className="text-amber-900">{'★'.repeat(rv.rating).padEnd(5, '☆')}</div>
+                    </div>
+                    {rv.body && <div className="text-amber-900/80 text-sm mt-3 line-clamp-5">{rv.body}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Editor */}
+          {me ? (
+            <form onSubmit={submitReview} className="mt-6 rounded-2xl border border-amber-100 bg-white/85 backdrop-blur-sm p-5 shadow-sm">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="text-sm font-medium text-amber-900/80">Your rating</div>
+                <div className="flex items-center gap-1">
+                  {[1,2,3,4,5].map((n)=> (
+                    <button
+                      type="button"
+                      key={n}
+                      onClick={()=> setRevRating(n)}
+                      className={`text-2xl transition-colors ${n <= revRating ? 'text-amber-900' : 'text-amber-900/30'}`}
+                      aria-label={`Rate ${n} star${n>1?'s':''}`}
+                    >★</button>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-3">
+                <input
+                  value={revTitle}
+                  onChange={(e)=> setRevTitle(e.target.value)}
+                  placeholder="Title (optional)"
+                  className="rounded-lg border border-amber-200 px-3 py-2 bg-white/95 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                />
+                <textarea
+                  value={revBody}
+                  onChange={(e)=> setRevBody(e.target.value)}
+                  placeholder="Share more details (optional)"
+                  rows={4}
+                  className="rounded-lg border border-amber-200 px-3 py-2 bg-white/95 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                />
+              </div>
+              {revError && <div className="mt-2 text-sm text-red-700">{revError}</div>}
+              <div className="mt-4 flex justify-end">
+                <button type="submit" disabled={revSubmitting} className="px-4 py-2 rounded-lg border border-amber-200 bg-amber-100 text-amber-900 font-semibold hover:bg-amber-200">
+                  {revSubmitting ? 'Saving…' : 'Save review'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="mt-5 text-sm text-amber-900/70">Please <a className="underline" href="/login">sign in</a> to write a review.</div>
+          )}
+        </div>
+      </section>
     </main>
     {showChat && (
       <ChatWidget productId={product.id} vendorName={vendorName} />

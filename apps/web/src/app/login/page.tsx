@@ -13,6 +13,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const onGoogle = () => {
+    const redirect = `${window.location.origin}/account`;
+    window.location.href = `${API_URL}/api/v1/auth/google/start?redirect=${encodeURIComponent(redirect)}`;
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +82,16 @@ export default function LoginPage() {
           <div className="text-center">
             <h1 className="text-3xl font-bold text-amber-900">Welcome back</h1>
             <p className="text-amber-900/70">Sign in to continue to your account.</p>
+          </div>
+
+          {/* Primary: Google sign in */}
+          <button type="button" onClick={onGoogle} className="w-full px-4 py-2.5 rounded-lg border border-amber-200 bg-white text-amber-900 font-semibold hover:bg-white/90 transition-colors">
+            Continue with Google
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-200/70 to-transparent" />
+            <div className="text-xs text-amber-900/70">or continue with email</div>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-200/70 to-transparent" />
           </div>
 
           {error && (

@@ -2,6 +2,24 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model Review {
+  id         String   @id @default(cuid())
+  productId  String
+  userId     String
+  rating     Int
+  title      String?
+  body       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([productId, userId])
+  @@index([productId])
+  @@index([userId])
+}
+
 model Conversation {
   id            String   @id @default(cuid())
   shopId        String
@@ -109,6 +127,7 @@ model User {
   addresses     Address[]
   auditLogs     AdminAuditLog[] @relation(name: "AdminActor")
   blogPosts     BlogPost[]
+  reviews       Review[]
 
   // Chat relations
   conversationParticipants ConversationParticipant[]
@@ -169,6 +188,7 @@ model Product {
 
   // Chat relations
   conversations Conversation[]
+  reviews       Review[]
 
   @@unique([shopId, slug])
   @@index([status, createdAt])

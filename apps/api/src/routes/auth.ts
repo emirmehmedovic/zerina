@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { z } from 'zod';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
@@ -136,6 +137,93 @@ router.post('/login', loginLimiter, async (req, res) => {
 router.post('/logout', (_req, res) => {
   res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: undefined });
   return res.json({ ok: true });
+});
+
+// --- Google OAuth ---
+// GET /api/v1/auth/google/start
+router.get('/google/start', (req, res) => {
+  const { googleClientId, googleRedirectUri, frontendUrl } = ENV as any;
+  if (!googleClientId || !googleRedirectUri) {
+    return res.status(501).json({ error: 'google_oauth_not_configured' });
+  }
+  const state = crypto.randomBytes(16).toString('hex');
+  const redirect = (req.query.redirect as string) || `${frontendUrl}/account`;
+  // Store minimal state in cookie (httpOnly)
+  res.cookie('oauth_state', JSON.stringify({ s: state, r: redirect }), { ...cookieOptions, maxAge: 5 * 60 * 1000 });
+  const params = new URLSearchParams({
+    client_id: googleClientId,
+    redirect_uri: googleRedirectUri,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    access_type: 'offline',
+    include_granted_scopes: 'true',
+    prompt: 'consent'
+  });
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  return res.redirect(url);
+});
+
+// GET /api/v1/auth/google/callback
+router.get('/google/callback', async (req, res) => {
+  try {
+    const code = (req.query.code as string) || '';
+    const state = (req.query.state as string) || '';
+    const cookieStateRaw = (req.cookies as any)?.oauth_state as string | undefined;
+    if (!code || !cookieStateRaw) return res.status(400).send('invalid_request');
+    let parsed: any = null;
+    try { parsed = JSON.parse(cookieStateRaw); } catch {}
+    if (!parsed || parsed.s !== state) return res.status(400).send('invalid_state');
+    const redirectAfter = parsed.r as string;
+    // Clear state cookie
+    res.clearCookie('oauth_state', { ...cookieOptions, maxAge: undefined });
+
+    const { googleClientId, googleClientSecret, googleRedirectUri } = ENV as any;
+    if (!googleClientId || !googleClientSecret || !googleRedirectUri) return res.status(501).send('not_configured');
+
+    // Exchange code for tokens
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: googleClientId,
+        client_secret: googleClientSecret,
+        redirect_uri: googleRedirectUri,
+        grant_type: 'authorization_code'
+      }) as any,
+    });
+    const tokenBody = await tokenRes.json().catch(() => ({}));
+    if (!tokenRes.ok) return res.status(400).send('token_exchange_failed');
+    const accessToken = tokenBody.access_token as string;
+    if (!accessToken) return res.status(400).send('no_access_token');
+
+    // Fetch userinfo
+    const uiRes = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const ui = await uiRes.json().catch(() => ({}));
+    if (!uiRes.ok) return res.status(400).send('userinfo_failed');
+    const email: string | undefined = ui?.email;
+    const name: string | undefined = ui?.name;
+    if (!email) return res.status(400).send('no_email');
+
+    // Upsert user by email (no googleId column yet). Ensure passwordHash requirement satisfied.
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      const randomPwd = crypto.randomBytes(24).toString('hex');
+      const passwordHash = await argon2.hash(randomPwd, { type: argon2.argon2id });
+      user = await prisma.user.create({ data: { email, passwordHash, name, role: 'BUYER' } });
+    }
+
+    // Sign session and set cookie
+    const token = signSession({ id: user.id, role: user.role as any });
+    res.cookie(COOKIE_NAME, token, cookieOptions);
+    return res.redirect(redirectAfter || ENV.frontendUrl);
+  } catch (e) {
+    console.error('google_oauth_error', e);
+    return res.status(500).send('oauth_error');
+  }
 });
 
 // POST /api/v1/auth/admin/create — admin creates another admin account

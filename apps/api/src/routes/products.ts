@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { badRequest, notFound } from '../utils/errors';
 import { validateQuery } from '../utils/validate';
+import { badRequest as badReq } from '../utils/errors';
 
 const router = Router();
 
@@ -518,3 +519,42 @@ router.delete('/:id/variants/:variantId', requireAuth, requireRole('VENDOR'), as
 });
 
 export default router;
+
+// --- Reviews ---
+// GET /api/v1/products/:id/reviews - public list of reviews with average
+router.get('/:id/reviews', async (req, res) => {
+  const { id } = req.params;
+  const product = await prisma.product.findUnique({ where: { id }, select: { id: true } });
+  if (!product) return notFound(res, 'Product not found');
+  const items = await prisma.review.findMany({
+    where: { productId: id },
+    orderBy: { createdAt: 'desc' },
+    include: { user: { select: { id: true, name: true, email: true } } }
+  });
+  const avgAgg = await prisma.review.aggregate({ _avg: { rating: true }, _count: { _all: true }, where: { productId: id } });
+  res.json({ items, average: avgAgg._avg.rating ?? null, count: avgAgg._count._all });
+});
+
+// POST /api/v1/products/:id/reviews - create or update current user's review
+router.post('/:id/reviews', requireAuth, async (req, res) => {
+  const user = (req as any).user as { sub: string };
+  const { id } = req.params;
+  const schema = z.object({
+    rating: z.number().int().min(1).max(5),
+    title: z.string().max(120).optional(),
+    body: z.string().max(2000).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return badReq(res, 'invalid_body');
+  const product = await prisma.product.findUnique({ where: { id }, select: { id: true } });
+  if (!product) return notFound(res, 'product_not_found');
+
+  const data = parsed.data;
+  // Upsert by (productId, userId)
+  const review = await prisma.review.upsert({
+    where: { productId_userId: { productId: id, userId: user.sub } },
+    update: { rating: data.rating, title: data.title, body: data.body },
+    create: { productId: id, userId: user.sub, rating: data.rating, title: data.title, body: data.body },
+  });
+  res.status(201).json(review);
+});

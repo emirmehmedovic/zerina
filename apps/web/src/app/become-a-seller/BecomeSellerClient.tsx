@@ -18,6 +18,10 @@ export default function BecomeSellerClient() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [accountErr, setAccountErr] = useState<string | null>(null);
+  const onGoogle = () => {
+    const redirect = `${window.location.origin}/become-a-seller`;
+    window.location.href = `${API_URL}/api/v1/auth/google/start?redirect=${encodeURIComponent(redirect)}`;
+  };
 
   const handleCreated = (s: Shop) => {
     setShop(s);
@@ -134,6 +138,11 @@ export default function BecomeSellerClient() {
                 <div className="mb-5 rounded-xl p-4 ring-1 ring-rose-200/60 bg-rose-50/50">
                   <div className="text-sm font-medium mb-2 text-amber-900">Create your account</div>
                   {accountErr && <div className="mb-3 text-sm text-red-700">{accountErr}</div>}
+                  <div className="mb-4">
+                    <button type="button" onClick={onGoogle} className="w-full px-4 py-2.5 rounded-lg border border-rose-200 bg-white/80 text-amber-900 font-semibold hover:bg-white transition-colors">
+                      Continue with Google
+                    </button>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium mb-1 text-amber-900/80" htmlFor="acc_name">Full name (optional)</label>
