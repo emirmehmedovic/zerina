@@ -8,7 +8,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'zerina-8aqp.onrender.com',
+        hostname: 'handmadelovefilled.com',
         port: '',
         pathname: '/**',
       },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { API_URL } from "@/lib/api";
 import { getCsrfToken } from "@/lib/csrf";
@@ -24,6 +24,19 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+declare global {
+  interface GrecaptchaEnterprise {
+    ready(callback: () => void): void;
+    execute(siteKey: string, options: { action: string }): Promise<string>;
+  }
+
+  interface Window {
+    grecaptcha?: {
+      enterprise?: GrecaptchaEnterprise;
+    };
+  }
+}
+
 type MeResponse = { id: string; name?: string | null; email?: string | null };
 
 type VendorApplicationPayload = {
@@ -33,6 +46,8 @@ type VendorApplicationPayload = {
   address: string;
   documentIds: string[];
 };
+
+const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 const wizardSteps = [
   { id: "account", label: "Account", description: "Create or sign in to your account" },
@@ -98,6 +113,26 @@ export default function BecomeSellerClient() {
   const [shopDescription, setShopDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+
+  const getRecaptchaToken = useCallback(async (action: string) => {
+    if (!recaptchaSiteKey || typeof window === "undefined") {
+      return null;
+    }
+    const enterprise = window.grecaptcha?.enterprise;
+    if (!enterprise?.execute) {
+      return null;
+    }
+    await new Promise<void>((resolve) => {
+      enterprise.ready(resolve);
+    });
+    try {
+      const token = await enterprise.execute(recaptchaSiteKey, { action });
+      return token;
+    } catch (error) {
+      console.warn("[recaptcha] execute failed", error);
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     if (me) {
@@ -192,6 +227,13 @@ export default function BecomeSellerClient() {
     setSubmissionError(null);
     setSubmitting(true);
     try {
+      let captchaToken: string | null = null;
+      if (recaptchaSiteKey) {
+        captchaToken = await getRecaptchaToken("vendor_upgrade_submit");
+        if (!captchaToken) {
+          throw new Error("Captcha verification failed. Please refresh and try again.");
+        }
+      }
       const csrf = await getCsrfToken();
       const shopRes = await fetch(`${API_URL}/api/v1/shops`, {
         method: "POST",
@@ -214,6 +256,7 @@ export default function BecomeSellerClient() {
       if (vendorValues.contactPhone) payload.contactPhone = vendorValues.contactPhone;
       if (vendorValues.address) payload.address = vendorValues.address;
       if (vendorValues.documentIds.length) payload.documentIds = vendorValues.documentIds;
+      if (captchaToken) payload.captchaToken = captchaToken;
 
       const upgradeRes = await fetch(`${API_URL}/api/v1/vendor/upgrade`, {
         method: "POST",

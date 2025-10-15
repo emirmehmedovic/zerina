@@ -5,5 +5,5 @@ export type Shop = {
   name: string;
   slug: string;
   description: string | null;
-  status: 'ACTIVE' | 'PENDING' | 'SUSPENDED';
+  status: 'ACTIVE' | 'PENDING_APPROVAL' | 'SUSPENDED' | 'CLOSED';
 };

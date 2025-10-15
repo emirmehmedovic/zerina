@@ -21,9 +21,21 @@ const geistMono = Geist_Mono({
 });
 
 
+const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className="force-light">
+      <head>
+        {recaptchaSiteKey ? (
+          <script
+            src={`https://www.google.com/recaptcha/enterprise.js?render=${recaptchaSiteKey}`}
+            async
+            defer
+            crossOrigin="anonymous"
+          />
+        ) : null}
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-light-background text-light-text`}>
         <CartProvider>
           <ToastProvider>
