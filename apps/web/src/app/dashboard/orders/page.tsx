@@ -5,7 +5,25 @@ import { API_URL } from "@/lib/api";
 import { getCsrfToken } from "@/lib/csrf";
 import { motion, AnimatePresence } from 'framer-motion';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Search, ChevronDown } from 'lucide-react';
+import { Search, ChevronDown, Printer } from 'lucide-react';
+import { imageUrl } from "@/lib/imageUrl";
+
+type VendorOrderItem = {
+  id: string;
+  productId: string;
+  variantId?: string;
+  quantity: number;
+  priceCents: number;
+  product?: {
+    title: string;
+    slug: string;
+    images?: { storageKey: string }[];
+  } | null;
+  variant?: {
+    id: string;
+    attributes: Record<string, unknown> | null;
+  } | null;
+};
 
 type VendorOrder = {
   id: string;
@@ -13,8 +31,17 @@ type VendorOrder = {
   currency: string;
   status: "PENDING_PAYMENT"|"PROCESSING"|"SHIPPED"|"DELIVERED"|"CANCELLED"|"REFUNDED";
   createdAt: string;
-  items: { id: string; productId: string; variantId?: string; quantity: number; priceCents: number }[];
+  items: VendorOrderItem[];
   buyer?: { email: string; name: string };
+  shippingAddress?: OrderAddress | null;
+  billingAddress?: OrderAddress | null;
+};
+
+type OrderAddress = {
+  street: string;
+  city: string;
+  postalCode: string;
+  country: string;
 };
 
 export default function VendorOrdersPage() {
@@ -149,6 +176,134 @@ export default function VendorOrdersPage() {
     return buttons;
   };
 
+  const renderAddress = (label: string, address?: OrderAddress | null) => {
+    if (!address) return (
+      <div className="rounded-xl bg-black/10 border border-white/10 p-4">
+        <div className="text-xs uppercase tracking-wide text-zinc-500 mb-1">{label}</div>
+        <div className="text-sm text-zinc-400">No address on file.</div>
+      </div>
+    );
+    return (
+      <div className="rounded-xl bg-black/10 border border-white/10 p-4">
+        <div className="text-xs uppercase tracking-wide text-zinc-500 mb-1">{label}</div>
+        <div className="text-sm text-zinc-200 space-y-1">
+          <div>{address.street}</div>
+          <div>{address.postalCode} {address.city}</div>
+          <div>{address.country}</div>
+        </div>
+      </div>
+    );
+  };
+
+  const formatMoney = (cents: number, currency: string) => `${(cents / 100).toFixed(2)} ${currency}`;
+
+  const variantSummary = (variant?: VendorOrderItem["variant"]) => {
+    if (!variant?.attributes || typeof variant.attributes !== 'object') return null;
+    return Object.entries(variant.attributes)
+      .filter(([key]) => key !== '__typename')
+      .map(([key, value]) => `${key}: ${String(value)}`)
+      .join(', ');
+  };
+
+  const printPackingSlip = (order: VendorOrder) => {
+    const win = window.open('', '_blank');
+    if (!win) {
+      alert('Please allow pop-ups to print the packing slip.');
+      return;
+    }
+
+    const addressLines = (address?: OrderAddress | null) => {
+      if (!address) return '<em>No address on file</em>';
+      return [address.street, `${address.postalCode} ${address.city}`, address.country]
+        .filter(Boolean)
+        .map((line) => `<div>${line}</div>`) 
+        .join('');
+    };
+
+    const itemsRows = order.items.map((item, idx) => {
+      const imgKey = item.product?.images?.[0]?.storageKey;
+      const variant = variantSummary(item.variant) || '';
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>
+            <div><strong>${item.product?.title || 'Product ' + item.productId.slice(0, 8)}</strong></div>
+            ${variant ? `<div class="variant">${variant}</div>` : ''}
+            <div class="meta">Product ID: ${item.productId}</div>
+            ${item.variantId ? `<div class="meta">Variant ID: ${item.variantId}</div>` : ''}
+          </td>
+          <td>${item.quantity}</td>
+          <td>${formatMoney(item.priceCents, order.currency)}</td>
+          <td>${formatMoney(item.priceCents * item.quantity, order.currency)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    win.document.write(`
+      <html>
+        <head>
+          <title>Packing slip #${order.id}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #111; margin: 24px; }
+            h1 { font-size: 20px; margin-bottom: 4px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; vertical-align: top; }
+            th { background: #f7f7f7; text-align: left; }
+            .section { margin-top: 16px; }
+            .meta { color: #666; font-size: 11px; }
+            .label { font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: .6px; margin-bottom: 4px; }
+            .address-box { border: 1px solid #ddd; padding: 12px; border-radius: 8px; }
+          </style>
+        </head>
+        <body>
+          <h1>Packing slip</h1>
+          <div class="meta">Order ID: ${order.id}</div>
+          <div class="meta">Placed: ${new Date(order.createdAt).toLocaleString()}</div>
+          <div class="meta">Status: ${order.status.replace(/_/g, ' ')}</div>
+
+          <div class="section" style="display:flex; gap:16px;">
+            <div style="flex:1;" class="address-box">
+              <div class="label">Ship to</div>
+              ${addressLines(order.shippingAddress)}
+            </div>
+            <div style="flex:1;" class="address-box">
+              <div class="label">Bill to</div>
+              ${addressLines(order.billingAddress)}
+            </div>
+          </div>
+
+          <div class="section address-box">
+            <div class="label">Customer</div>
+            <div>${order.buyer?.name || 'Unknown customer'}</div>
+            <div class="meta">${order.buyer?.email || 'No email on file'}</div>
+          </div>
+
+          <table class="section">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Product</th>
+                <th>Qty</th>
+                <th>Unit price</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsRows}
+            </tbody>
+          </table>
+
+          <div class="section" style="text-align:right; font-weight:600;">
+            Total: ${formatMoney(order.totalCents, order.currency)}
+          </div>
+        </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
   return (
     <main>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
@@ -198,8 +353,13 @@ export default function VendorOrdersPage() {
         <div className="text-center p-10 rounded-2xl bg-black/20 border border-white/10 text-zinc-500">No orders found.</div>
       ) : (
         <div className="space-y-4">
-          {filteredOrders.map((o) => (
-            <div key={o.id} className="rounded-2xl bg-black/20 border border-white/10 transition-colors hover:bg-black/30">
+          {filteredOrders.map((o) => {
+            const isExpanded = expandedId === o.id;
+            return (
+              <div
+                key={o.id}
+                className={`rounded-2xl bg-black/20 transition-colors hover:bg-black/30 border ${isExpanded ? 'border-emerald-400/70 shadow-[0_0_0_1px_rgba(52,211,153,0.35)]' : 'border-white/10'}`}
+              >
               <div className="p-4 cursor-pointer" onClick={() => setExpandedId(prev => prev === o.id ? null : o.id)}>
                 <div className="grid grid-cols-10 items-center gap-4">
                   <div className="col-span-3">
@@ -221,7 +381,7 @@ export default function VendorOrdersPage() {
                 </div>
               </div>
               <AnimatePresence>
-                {expandedId === o.id && (
+                {isExpanded && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
@@ -229,21 +389,75 @@ export default function VendorOrdersPage() {
                     className="overflow-hidden"
                   >
                     <div className="border-t border-white/10 p-4 space-y-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-xl bg-black/10 border border-white/10 p-4">
+                          <div className="text-xs uppercase tracking-wide text-zinc-500 mb-1">Customer</div>
+                          <div className="text-sm text-zinc-200 space-y-1">
+                            <div>{o.buyer?.name || 'Unknown customer'}</div>
+                            <div className="text-zinc-400">{o.buyer?.email || 'No email provided'}</div>
+                            <div className="text-xs text-zinc-500">Placed {new Date(o.createdAt).toLocaleString()}</div>
+                          </div>
+                        </div>
+                        {renderAddress('Shipping address', o.shippingAddress)}
+                        {renderAddress('Billing address', o.billingAddress)}
+                      </div>
+
                       <div>
                         <h4 className="text-sm font-semibold text-zinc-300 mb-2">Items</h4>
                         <ul className="text-sm divide-y divide-white/10">
                           {o.items?.map((it) => (
-                            <li key={it.id} className="py-2 flex items-center justify-between">
-                              <div>
-                                {it.quantity} × <a className="underline hover:text-blue-400" href={`/dashboard/products/${it.productId}/edit`}>Product #{it.productId.slice(0, 8)}...</a>
+                            <li key={it.id} className="py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex items-start gap-3">
+                                {it.product?.images?.[0]?.storageKey ? (
+                                  <img
+                                    src={imageUrl(it.product.images[0].storageKey)}
+                                    alt={it.product?.title || 'Product image'}
+                                    className="h-12 w-12 rounded-md object-cover border border-white/10"
+                                  />
+                                ) : (
+                                  <div className="h-12 w-12 rounded-md border border-dashed border-white/10 flex items-center justify-center text-[11px] text-zinc-500">No image</div>
+                                )}
+                                <div>
+                                  <div className="text-sm font-semibold text-zinc-100">
+                                    {it.product?.title || `Product ${it.productId.slice(0, 8)}`}
+                                  </div>
+                                  <div className="text-xs text-zinc-500">
+                                    Product ID: {it.productId}
+                                  </div>
+                                  {it.variantId && (
+                                    <div className="text-xs text-zinc-500">
+                                      Variant: {it.variantId}
+                                    </div>
+                                  )}
+                                  {variantSummary(it.variant) && (
+                                    <div className="text-xs text-zinc-400 mt-1">{variantSummary(it.variant)}</div>
+                                  )}
+                                  <a
+                                    className="mt-1 inline-flex items-center gap-1 text-xs text-blue-300 hover:text-blue-200"
+                                    href={`/dashboard/products/${it.productId}/edit`}
+                                  >
+                                    View product details
+                                  </a>
+                                </div>
                               </div>
-                              <div className="font-mono text-zinc-400">${(it.priceCents / 100).toFixed(2)}</div>
+                              <div className="text-right space-y-1">
+                                <div className="text-sm text-zinc-300">Qty: {it.quantity}</div>
+                                <div className="font-mono text-zinc-400">Unit: {formatMoney(it.priceCents, o.currency)}</div>
+                                <div className="font-semibold text-zinc-100">Subtotal: {formatMoney(it.priceCents * it.quantity, o.currency)}</div>
+                              </div>
                             </li>
                           ))}
                         </ul>
                       </div>
                       <div className="flex flex-wrap items-center gap-3 pt-2">
-                        <h4 className="text-sm font-semibold text-zinc-300">Actions:</h4>
+                        <button
+                          type="button"
+                          onClick={() => printPackingSlip(o)}
+                          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-zinc-100 hover:bg-white/20"
+                        >
+                          <Printer className="h-3.5 w-3.5" /> Print packing slip
+                        </button>
+                        <h4 className="text-sm font-semibold text-zinc-300">Status actions:</h4>
                         {actionsFor(o).map((a) => (
                           <button key={a.to} className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition-colors" disabled={updatingId === o.id} onClick={() => setStatusFor(o.id, a.to)}>
                             {updatingId === o.id ? 'Saving…' : a.label}
@@ -255,7 +469,8 @@ export default function VendorOrdersPage() {
                 )}
               </AnimatePresence>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </main>

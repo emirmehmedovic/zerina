@@ -1,21 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { API_URL } from "@/lib/api";
-import { LayoutDashboard, BarChart2, Package, ShoppingBag, ClipboardList, MapPin, Home, Menu, X, LifeBuoy, User, Shield, LogOut, FileText, MessageSquare } from "lucide-react";
+import { LayoutDashboard, BarChart2, Package, ShoppingBag, ClipboardList, MapPin, Home, Menu, X, LifeBuoy, User, Shield, LogOut, FileText, MessageSquare, Tag, Wallet, Sparkles } from "lucide-react";
 import { Menu as HeadlessMenu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import LogoutButton from "@/components/LogoutButton";
 
 type Me = { id: string; role: "BUYER"|"VENDOR"|"ADMIN" };
 
+type ApplicationStatus = {
+  application: {
+    status: "PENDING" | "APPROVED" | "REJECTED";
+  } | null;
+};
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<ApplicationStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   // Close sidebar when route changes (mobile)
   useEffect(() => {
@@ -23,24 +32,66 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [pathname]);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       setLoading(true);
       try {
         const res = await fetch(`${API_URL}/api/v1/users/me`, { credentials: "include" });
-        if (res.ok) setMe(await res.json());
+        if (res.ok) {
+          const body = await res.json();
+          if (!cancelled) setMe(body);
+        }
       } catch {}
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (loading) return <div className="p-6">Loading…</div>;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setStatusLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/v1/vendor/application-status`, { credentials: "include" });
+        if (res.ok) {
+          const body = (await res.json()) as ApplicationStatus;
+          if (!cancelled) setStatus(body);
+        }
+      } catch {}
+      if (!cancelled) setStatusLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const approved = useMemo(() => {
+    if (!me) return false;
+    if (me.role === "ADMIN") return true;
+    return status?.application?.status === "APPROVED";
+  }, [me, status]);
+
+  const onboardingOnly = Boolean(me && me.role === "VENDOR" && !approved);
+
+  useEffect(() => {
+    if (loading || statusLoading) return;
+    if (!onboardingOnly) return;
+    if (pathname !== "/dashboard/onboarding") {
+      router.replace("/dashboard/onboarding");
+    }
+  }, [loading, statusLoading, onboardingOnly, pathname, router]);
+
+  if (loading || statusLoading) return <div className="p-6">Loading…</div>;
   if (!me || (me.role !== "VENDOR" && me.role !== "ADMIN")) {
     if (typeof window !== 'undefined') window.location.href = "/login";
     return null;
   }
 
-  const navItems = [
+  const fullNavItems = [
     { href: "/dashboard", label: "Overview", icon: <LayoutDashboard className="h-4 w-4 mr-2" /> },
+    { href: "/dashboard/onboarding", label: "Onboarding", icon: <Sparkles className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/analytics", label: "Analytics", icon: <BarChart2 className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/inbox", label: "Inbox", icon: <MessageSquare className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/products", label: "Products", icon: <Package className="h-4 w-4 mr-2" /> },
@@ -48,10 +99,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/blog", label: "Blog", icon: <FileText className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/blog/new", label: "New Blog Post", icon: <FileText className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/orders", label: "Orders", icon: <ClipboardList className="h-4 w-4 mr-2" /> },
+    { href: "/dashboard/discount-codes", label: "Discount Codes", icon: <Tag className="h-4 w-4 mr-2" /> },
+    { href: "/dashboard/settings/payments", label: "Payments", icon: <Wallet className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/addresses", label: "My Addresses", icon: <MapPin className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/shop/appearance", label: "Shop Appearance", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
     // No categories here; categories are managed under Admin only
   ];
+
+  const navItems = onboardingOnly
+    ? [{ href: "/dashboard/onboarding", label: "Onboarding", icon: <Sparkles className="h-4 w-4 mr-2" /> }]
+    : fullNavItems;
 
   const getPageTitle = () => {
     if (pathname === "/dashboard") return "Dashboard Overview";
@@ -65,6 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (pathname === "/dashboard/addresses") return "My Addresses";
     if (pathname === "/dashboard/shop/appearance") return "Shop Appearance";
     if (pathname?.startsWith("/dashboard/analytics/")) return "Analytics Details";
+    if (pathname === "/dashboard/onboarding") return onboardingOnly ? "Complete Your Vendor Onboarding" : "Vendor Onboarding";
     return "Vendor Dashboard";
   };
 

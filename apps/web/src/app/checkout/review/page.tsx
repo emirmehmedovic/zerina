@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
+import { loadStripe, type Appearance } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
 type ValidatedItem = {
   shopId: string;
@@ -17,6 +19,15 @@ type ValidatedData = {
   items: ValidatedItem[];
   totalCents: number;
   currency: string;
+  discount?: {
+    code: string;
+    percentOff: number;
+    amountCents: number;
+    shopId: string;
+    shopName?: string | null;
+  } | null;
+  discountCents?: number;
+  payableCents?: number;
 };
 
 type Group = {
@@ -30,7 +41,78 @@ import { imageUrl } from "@/lib/imageUrl";
 import { getCsrfToken } from "@/lib/csrf";
 import AddToCartButton from "@/components/AddToCartButton";
 
-export default function CheckoutReviewPage() {
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
+const appearance: Appearance = {
+  theme: 'stripe',
+  variables: {
+    colorPrimary: '#f97316',
+    colorBackground: '#ffffff',
+    colorText: '#0f172a',
+  },
+};
+
+type StripePaymentFormProps = {
+  intentId: string | null;
+  onSubmit: (paymentIntentId?: string) => Promise<void>;
+  placing: boolean;
+  paymentError: string | null;
+  setPaymentError: (message: string | null) => void;
+};
+
+function StripePaymentForm({ intentId, onSubmit, placing, paymentError, setPaymentError }: StripePaymentFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!stripe || !elements) {
+      setPaymentError('Payment form is not ready yet.');
+      return;
+    }
+    setPaymentError(null);
+    setConfirmingPayment(true);
+    try {
+      const result = await stripe.confirmPayment({
+        elements,
+        redirect: 'if_required',
+      });
+      if (result.error) {
+        throw new Error(result.error.message || 'Payment confirmation failed.');
+      }
+      await onSubmit(intentId || undefined);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setPaymentError(err.message);
+      } else {
+        setPaymentError('An unknown payment error occurred.');
+      }
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="mb-4 rounded-xl border border-rose-200/60 dark:border-rose-400/20 bg-white/70 p-4">
+        <PaymentElement options={{ layout: 'tabs' }} />
+      </div>
+      {paymentError && (
+        <div className="mb-3 rounded-lg border border-red-400/40 bg-red-100/60 px-3 py-2 text-sm text-red-700">{paymentError}</div>
+      )}
+      <button
+        className="group relative w-full rounded-xl px-5 py-3 font-semibold text-amber-900 dark:text-amber-900 shadow-sm ring-1 ring-rose-200/60 dark:ring-rose-400/20 bg-gradient-to-r from-rose-100/80 via-amber-100/80 to-rose-100/80 hover:from-rose-100 hover:to-amber-100 transition-colors disabled:opacity-60"
+        onClick={handleSubmit}
+        disabled={placing || confirmingPayment}
+      >
+        {placing || confirmingPayment ? 'Processing…' : 'Confirm and pay'}
+        <span aria-hidden className="absolute inset-0 rounded-xl pointer-events-none shadow-[0_0_0_1px_rgba(244,114,182,0.25)_inset]" />
+      </button>
+    </>
+  );
+}
+
+function InnerCheckoutReview() {
   const router = useRouter();
   const { items, clear } = useCart();
   const [shipping, setShipping] = useState<{ street: string; city: string; postalCode: string; country: string } | null>(null);
@@ -53,6 +135,11 @@ export default function CheckoutReviewPage() {
     shop?: { slug: string };
   }> | null>(null);
 
+  const [discountInput, setDiscountInput] = useState("");
+  const [discountFeedback, setDiscountFeedback] = useState<string | null>(null);
+  const [discountApplying, setDiscountApplying] = useState(false);
+  const [activeDiscountCode, setActiveDiscountCode] = useState<string | null>(null);
+
   useEffect(() => {
     try {
       const s = sessionStorage.getItem("checkout:shipping");
@@ -61,6 +148,7 @@ export default function CheckoutReviewPage() {
         router.push("/checkout");
         return;
       }
+
       setShipping(JSON.parse(s));
       setBilling(JSON.parse(b));
     } catch {}
@@ -87,11 +175,21 @@ export default function CheckoutReviewPage() {
             "X-CSRF-Token": csrf
           },
           credentials: "include",
-          body: JSON.stringify({ items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, qty: i.qty })) }),
+          body: JSON.stringify({
+            items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, qty: i.qty })),
+            discountCode: activeDiscountCode || undefined,
+          }),
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
         setValidated(body);
+        if (body?.discount?.code) {
+          setActiveDiscountCode(body.discount.code);
+          setDiscountFeedback(`Discount ${body.discount.code} applied.`);
+          setDiscountInput(body.discount.code);
+        } else {
+          setDiscountFeedback(null);
+        }
       } catch (e: unknown) {
         if (e instanceof Error) {
           setError(e.message);
@@ -103,7 +201,7 @@ export default function CheckoutReviewPage() {
       }
     };
     run();
-  }, [items, shipping, billing]);
+  }, [items, shipping, billing, activeDiscountCode]);
 
   // Fetch a few suggested products for the "Forgot something?" strip after validation completes,
   // cache in sessionStorage, and filter out items already in the cart
@@ -138,13 +236,52 @@ export default function CheckoutReviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
 
-  const placeOrder = async () => {
-    if (!shipping || !billing) return;
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [intentId, setIntentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!items.length || !shipping || !billing) return;
+    const createIntent = async () => {
+      try {
+        const csrf = await getCsrfToken();
+        const res = await fetch(`${API_URL}/api/v1/checkout/payment-intent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf,
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, qty: i.qty })),
+            discountCode: activeDiscountCode || undefined,
+          }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body?.error || `Failed (${res.status})`);
+        setClientSecret(body.clientSecret || null);
+        setIntentId(body.paymentIntentId || null);
+        setPaymentError(null);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setPaymentError(err.message);
+        } else {
+          setPaymentError('Unable to create payment.');
+        }
+      }
+    };
+    createIntent();
+  }, [items, shipping, billing, activeDiscountCode]);
+
+  const submitOrder = async (paymentIntentId?: string) => {
+    if (!shipping || !billing) {
+      setPaymentError('Missing address information.');
+      throw new Error('Missing address information.');
+    }
     setPlacing(true);
+    setPaymentError(null);
     try {
-      // Get CSRF token
       const csrf = await getCsrfToken();
-      
       const res = await fetch(`${API_URL}/api/v1/checkout/draft`, {
         method: "POST",
         headers: { 
@@ -156,6 +293,8 @@ export default function CheckoutReviewPage() {
           items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, qty: i.qty })),
           shipping,
           billing,
+          discountCode: validated?.discount?.code || undefined,
+          paymentIntentId,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -168,13 +307,64 @@ export default function CheckoutReviewPage() {
       router.push("/checkout/confirmation");
     } catch (e: unknown) {
       if (e instanceof Error) {
-        setError(e.message);
+        setPaymentError(e.message);
+        throw e;
       } else {
-        setError("An unknown error occurred");
+        setPaymentError("An unknown error occurred");
+        throw new Error('An unknown error occurred');
       }
     } finally {
       setPlacing(false);
     }
+  };
+
+  const applyDiscount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!discountInput.trim()) {
+      setDiscountFeedback("Enter a discount code.");
+      return;
+    }
+    setDiscountApplying(true);
+    setDiscountFeedback(null);
+    try {
+      const csrf = await getCsrfToken();
+      const normalized = discountInput.trim().toUpperCase();
+      const res = await fetch(`${API_URL}/api/v1/checkout/validate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrf,
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, qty: i.qty })),
+          discountCode: normalized,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body?.message || body?.error || `Failed (${res.status})`);
+      }
+      setValidated(body);
+      setActiveDiscountCode(body?.discount?.code || normalized);
+      setDiscountInput(body?.discount?.code || normalized);
+      setDiscountFeedback(`Discount ${body?.discount?.code || normalized} applied.`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setDiscountFeedback(err.message);
+      } else {
+        setDiscountFeedback("Unable to apply discount");
+      }
+    } finally {
+      setDiscountApplying(false);
+    }
+  };
+
+  const removeDiscount = async () => {
+    setActiveDiscountCode(null);
+    setDiscountInput("");
+    setDiscountFeedback("Discount removed.");
+    setValidated((prev) => prev ? { ...prev, discount: null, discountCents: 0, payableCents: prev.totalCents } : prev);
   };
 
   if (!shipping || !billing) {
@@ -269,9 +459,21 @@ export default function CheckoutReviewPage() {
                         </div>
                       </div>
                     ))}
-                    <div className="pt-4 border-t border-rose-200/60 dark:border-rose-400/30 flex items-center justify-between">
-                      <div className="text-base font-bold text-amber-900 dark:text-amber-900">Total</div>
-                      <div className="text-base font-extrabold text-amber-900 dark:text-amber-900">{(validated!.totalCents/100).toFixed(2)} {validated?.currency}</div>
+                    <div className="pt-4 border-t border-rose-200/60 dark:border-rose-400/30 space-y-2 text-sm">
+                      <div className="flex items-center justify-between text-amber-900 dark:text-amber-900/90">
+                        <span>Subtotal</span>
+                        <span>{((validated?.totalCents || 0)/100).toFixed(2)} {validated?.currency}</span>
+                      </div>
+                      {validated?.discount && (validated.discountCents || validated.discount.amountCents) ? (
+                        <div className="flex items-center justify-between text-emerald-700">
+                          <span>Discount {validated.discount.code}</span>
+                          <span>-{((validated.discountCents ?? validated.discount.amountCents)/100).toFixed(2)} {validated?.currency}</span>
+                        </div>
+                      ) : null}
+                      <div className="flex items-center justify-between text-base font-semibold text-amber-900 dark:text-amber-900">
+                        <span>Total due</span>
+                        <span>{((validated?.payableCents ?? validated?.totalCents ?? 0)/100).toFixed(2)} {validated?.currency}</span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -287,14 +489,51 @@ export default function CheckoutReviewPage() {
                 <div className="text-sm font-medium mb-1 text-amber-900 dark:text-amber-900">Billing</div>
                 <div className="text-sm text-amber-900/90 dark:text-amber-900/90">{billing.street}, {billing.city} {billing.postalCode}, {billing.country}</div>
               </div>
-              <button
-                className="group relative w-full rounded-xl px-5 py-3 font-semibold text-amber-900 dark:text-amber-900 shadow-sm ring-1 ring-rose-200/60 dark:ring-rose-400/20 bg-gradient-to-r from-rose-100/80 via-amber-100/80 to-rose-100/80 hover:from-rose-100 hover:to-amber-100 transition-colors disabled:opacity-60"
-                onClick={placeOrder}
-                disabled={placing}
-              >
-                {placing ? 'Placing…' : 'Place order'}
-                <span aria-hidden className="absolute inset-0 rounded-xl pointer-events-none shadow-[0_0_0_1px_rgba(244,114,182,0.25)_inset]" />
-              </button>
+              <form onSubmit={applyDiscount} className="mb-4 space-y-2">
+                <label className="text-xs font-semibold text-amber-900/80 dark:text-amber-900">Have a discount code?</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    className="flex-1 rounded-lg border border-rose-200/60 bg-white/70 px-3 py-2 text-sm text-amber-900 focus:border-rose-400 focus:outline-none"
+                    placeholder="SUMMER25"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
+                  />
+                  <button
+                    type="submit"
+                    disabled={discountApplying}
+                    className="rounded-lg border border-rose-200/60 bg-rose-100/80 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-rose-100 disabled:opacity-60"
+                  >
+                    {discountApplying ? 'Applying…' : 'Apply'}
+                  </button>
+                  {validated?.discount?.code && (
+                    <button
+                      type="button"
+                      onClick={removeDiscount}
+                      className="rounded-lg border border-amber-200/60 bg-amber-50/80 px-3 py-2 text-sm text-amber-900 hover:bg-amber-100"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                {discountFeedback && (
+                  <div className="text-xs text-amber-700">{discountFeedback}</div>
+                )}
+              </form>
+              {clientSecret && stripePromise ? (
+                <Elements stripe={stripePromise} options={{ clientSecret, appearance }}>
+                  <StripePaymentForm
+                    intentId={intentId}
+                    onSubmit={submitOrder}
+                    placing={placing}
+                    paymentError={paymentError}
+                    setPaymentError={setPaymentError}
+                  />
+                </Elements>
+              ) : (
+                <div className="mb-4 rounded-xl border border-rose-200/60 dark:border-rose-400/20 bg-white/50 p-4 text-sm text-amber-900/70">
+                  {paymentError ? paymentError : 'Preparing secure payment form…'}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -359,4 +598,18 @@ export default function CheckoutReviewPage() {
       </div>
     </main>
   );
+}
+
+export default function CheckoutReviewPage() {
+  if (!stripePromise) {
+    return (
+      <main className="max-w-5xl mx-auto py-10 px-4">
+        <div className="card-base card-glass p-8 text-center text-sm text-amber-900/70">
+          Stripe is not configured. Add `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` to your environment and refresh.
+        </div>
+      </main>
+    );
+  }
+
+  return <InnerCheckoutReview />;
 }

@@ -9,8 +9,32 @@ import rateLimit from 'express-rate-limit';
 import { COOKIE_NAME } from '../middleware/auth';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { issueCsrfToken } from '../middleware/csrf';
+import { enqueueEmail } from '../lib/email';
 
 const router = Router();
+
+const phoneRequestSchema = z.object({
+  phoneNumber: z.string().min(6).max(32),
+});
+
+const phoneVerifySchema = z.object({
+  code: z.string().length(6),
+});
+
+const resendEmailSchema = z.object({});
+
+const phoneCooldownMs = 2 * 60 * 1000;
+
+function generatePhoneCode() {
+  return crypto.randomInt(100_000, 1_000_000).toString();
+}
+
+const phoneRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const forgotSchema = z.object({
   email: z.string().email(),
@@ -139,6 +163,109 @@ router.post('/logout', (_req, res) => {
   return res.json({ ok: true });
 });
 
+router.post('/phone/request', requireAuth, phoneRateLimit, async (req, res) => {
+  if (!ENV.requirePhoneVerification) {
+    return res.status(501).json({ error: 'phone_verification_disabled' });
+  }
+
+  const parsed = phoneRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
+  }
+
+  const user = (req as any).user as { sub: string };
+  const dbUser = await prisma.user.findUnique({ where: { id: user.sub } });
+  if (!dbUser) {
+    return res.status(404).json({ error: 'user_not_found' });
+  }
+
+  const phoneTokens = (prisma as any).phoneVerificationToken;
+  const existing = await phoneTokens.findFirst({
+    where: { userId: user.sub },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (existing && existing.expiresAt > new Date(Date.now() - phoneCooldownMs)) {
+    return res.status(429).json({ error: 'too_many_requests' });
+  }
+
+  const code = generatePhoneCode();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: user.sub }, data: { phoneNumber: parsed.data.phoneNumber } as any }),
+    phoneTokens.create({
+      data: {
+        userId: user.sub,
+        code,
+        expiresAt,
+      },
+    }),
+  ]);
+
+  console.log('[auth] send phone verification code', parsed.data.phoneNumber, code);
+
+  return res.json({ ok: true, expiresAt });
+});
+
+router.post('/phone/verify', requireAuth, async (req, res) => {
+  if (!ENV.requirePhoneVerification) {
+    return res.status(501).json({ error: 'phone_verification_disabled' });
+  }
+
+  const parsed = phoneVerifySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
+  }
+
+  const user = (req as any).user as { sub: string };
+  const phoneTokens = (prisma as any).phoneVerificationToken;
+  const token = await phoneTokens.findFirst({
+    where: { userId: user.sub },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!token || token.expiresAt < new Date() || token.code !== parsed.data.code) {
+    return res.status(400).json({ error: 'invalid_code' });
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.sub },
+      data: { phoneVerifiedAt: new Date() } as any,
+    }),
+    phoneTokens.deleteMany({ where: { userId: user.sub } }),
+  ]);
+
+  return res.json({ ok: true });
+});
+
+router.post('/email/resend-verification', requireAuth, async (req, res) => {
+  const parsed = resendEmailSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
+  }
+
+  const user = (req as any).user as { sub: string };
+  const dbUser = await prisma.user.findUnique({ where: { id: user.sub } });
+  if (!dbUser) {
+    return res.status(404).json({ error: 'user_not_found' });
+  }
+
+  const userWithEmailVerification = dbUser as typeof dbUser & { emailVerifiedAt?: Date | null };
+
+  if (userWithEmailVerification.emailVerifiedAt) {
+    return res.json({ ok: true, alreadyVerified: true });
+  }
+
+  await enqueueEmail({
+    to: dbUser.email,
+    subject: 'Verify your email address',
+    html: `<p>Hello${dbUser.name ? ` ${dbUser.name}` : ''},</p><p>Please verify your email address to continue onboarding.</p>`,
+    text: `Hello${dbUser.name ? ` ${dbUser.name}` : ''},\nPlease verify your email address to continue onboarding.`,
+  });
+
+  return res.json({ ok: true });
+});
 // --- Google OAuth ---
 // GET /api/v1/auth/google/start
 router.get('/google/start', (req, res) => {

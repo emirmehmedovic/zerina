@@ -2,6 +2,56 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model VendorDocument {
+  id            String   @id @default(cuid())
+  applicationId String?
+  userId        String
+  storageKey    String
+  originalName  String
+  mimeType      String
+  sizeBytes     Int
+  uploadedAt    DateTime @default(now())
+
+  application   VendorApplication? @relation(fields: [applicationId], references: [id])
+  user          User               @relation(fields: [userId], references: [id])
+
+  @@index([applicationId])
+  @@index([userId])
+}
+
+model VendorApplication {
+  id             String                    @id @default(cuid())
+  userId         String
+  status         VendorApplicationStatus   @default(PENDING)
+  legalName      String
+  country        String
+  address        String?
+  contactPhone   String?
+  submittedAt    DateTime                  @default(now())
+  reviewedAt     DateTime?
+  reviewedById   String?
+  notes          String?                   @db.Text
+  rejectionReason String?                  @db.Text
+  identityVerificationStatus IdentityVerificationStatus @default(NOT_REQUIRED)
+  identityVerificationProvider String?
+  identityVerificationId      String?
+  identityVerificationCheckedAt DateTime?
+  identityVerificationNotes   String?                   @db.Text
+  securityDepositRequired     Boolean                   @default(false)
+  securityDepositStatus       SecurityDepositStatus     @default(NOT_REQUIRED)
+  securityDepositAmountCents  Int?
+  securityDepositCurrency     String?
+  securityDepositPaidAt       DateTime?
+  securityDepositPaymentIntentId String?
+
+  user          User                      @relation(fields: [userId], references: [id])
+  reviewedBy    User?                     @relation("VendorApplicationReviewedBy", fields: [reviewedById], references: [id])
+  vendorDocuments VendorDocument[]
+
+  @@index([userId, status])
+  @@index([status, submittedAt])
+}
+
 model Review {
   id         String   @id @default(cuid())
   productId  String
@@ -18,6 +68,41 @@ model Review {
   @@unique([productId, userId])
   @@index([productId])
   @@index([userId])
+}
+
+model DiscountCode {
+  id             String   @id @default(cuid())
+  shopId         String
+  code           String   @unique
+  description    String?
+  percentOff     Int
+  expiresAt      DateTime?
+  maxUsesPerUser Int      @default(1)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  shop        Shop                      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  orders      Order[]
+  redemptions DiscountCodeRedemption[]
+
+  @@index([shopId])
+}
+
+model DiscountCodeRedemption {
+  id             String   @id @default(cuid())
+  discountCodeId String
+  userId         String
+  orderId        String?
+  redeemedAt     DateTime @default(now())
+
+  discountCode DiscountCode @relation(fields: [discountCodeId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+  order        Order?       @relation(fields: [orderId], references: [id])
+
+  @@index([discountCodeId, userId])
+  @@index([userId])
+  @@index([orderId])
 }
 
 model Conversation {
@@ -83,6 +168,40 @@ enum ShopStatus {
   CLOSED
 }
 
+enum VendorApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum IdentityVerificationStatus {
+  NOT_REQUIRED
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum SecurityDepositStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
+  REFUNDED
+  WAIVED
+}
+
+model PhoneVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
 enum ProductStatus {
   DRAFT
   PUBLISHED
@@ -97,6 +216,13 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
   REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  TRANSFERRED
+  FAILED
 }
 
 enum BlogStatus {
@@ -121,13 +247,22 @@ model User {
   updatedAt     DateTime  @updatedAt
   lastLogin     DateTime?
   isDisabled    Boolean   @default(false)
+  emailVerifiedAt DateTime?
+  phoneNumber     String?
+  phoneVerifiedAt DateTime?
+
+  phoneVerificationTokens PhoneVerificationToken[]
 
   shop          Shop?
-  orders        Order[]
+  orders        Order[]   @relation("BuyerOrders")
   addresses     Address[]
   auditLogs     AdminAuditLog[] @relation(name: "AdminActor")
   blogPosts     BlogPost[]
   reviews       Review[]
+  discountRedemptions DiscountCodeRedemption[]
+  vendorApplications   VendorApplication[]
+  reviewedVendorApplications VendorApplication[] @relation("VendorApplicationReviewedBy")
+  vendorDocuments VendorDocument[]
 
   // Chat relations
   conversationParticipants ConversationParticipant[]
@@ -150,6 +285,14 @@ model Shop {
   coverUrl              String?
   coverImageStorageKey  String?
 
+  // Stripe Connect metadata
+  stripeAccountId        String?
+  stripeDetailsSubmitted Boolean   @default(false)
+  stripeChargesEnabled   Boolean   @default(false)
+  stripePayoutsEnabled   Boolean   @default(false)
+  stripeOnboardedAt      DateTime?
+  stripeDefaultCurrency  String?
+
   owner         User       @relation(fields: [ownerId], references: [id])
   products      Product[]
   orders        Order[]
@@ -159,6 +302,8 @@ model Shop {
 
   // Chat relations
   conversations Conversation[]
+
+  discountCodes DiscountCode[]
 
   @@index([status])
 }
@@ -246,29 +391,33 @@ model ProductCategory {
 }
 
 model Order {
-  id          String      @id @default(cuid())
-  buyerId     String
-  shopId      String
-  totalCents  Int
-  currency    String
-  status      OrderStatus @default(PENDING_PAYMENT)
+  id               String        @id @default(cuid())
+  buyerId          String
+  shopId           String
+  status           OrderStatus   @default(PENDING_PAYMENT)
+  totalCents       Int
+  discountCents    Int           @default(0)
+  currency         String        @default("EUR")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  confirmationNotifiedAt DateTime?
+  shippedNotifiedAt      DateTime?
   shippingAddressId String?
-  billingAddressId String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  billingAddressId  String?
+  discountCodeId    String?
 
-  buyer           User        @relation(fields: [buyerId], references: [id])
-  shop            Shop        @relation(fields: [shopId], references: [id])
-  items           OrderItem[]
+  buyer            User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  shop             Shop          @relation(fields: [shopId], references: [id])
+  items            OrderItem[]
   payments        Payment[]
   shippingAddress Address?    @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
   billingAddress  Address?    @relation("BillingAddress", fields: [billingAddressId], references: [id])
-
+  discountCode    DiscountCode?            @relation(fields: [discountCodeId], references: [id])
+  discountUsages  DiscountCodeRedemption[]
   @@index([buyerId, createdAt])
   @@index([shopId, createdAt])
   // Speed up status-based lookups and listings
   @@index([shopId, status, createdAt])
-  @@index([status, createdAt])
 }
 
 model OrderItem {
@@ -305,12 +454,25 @@ model Payment {
   id                String   @id @default(cuid())
   orderId           String
   provider          String
-  providerPaymentId String   @unique
-  status            String
-  amountCents       Int
-  createdAt         DateTime @default(now())
+  providerPaymentIntentId String   @unique @map("providerPaymentId")
+  providerChargeId        String?
+  providerTransferId      String?
+  transferGroup           String?
+  status                  PaymentStatus @default(PENDING)
+  amountCents             Int
+  applicationFeeCents     Int      @default(0)
+  transferAmountCents     Int      @default(0)
+  netAmountCents          Int      @default(0)
+  currency                String   @default("eur")
+  clientSecret            String?
+  rawPayload              Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   order             Order    @relation(fields: [orderId], references: [id])
+
+  @@index([providerPaymentIntentId])
+  @@index([providerTransferId])
 }
 
 model Payout {

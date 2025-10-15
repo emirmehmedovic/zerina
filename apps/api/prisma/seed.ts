@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { PrismaClient } from '@prisma/client';
+import argon2 from 'argon2';
 
 // Load env from API .env and repo root .env as fallback
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -18,6 +19,68 @@ function slugify(input: string) {
 }
 
 async function main() {
+  const adminEmail = 'admin@example.com';
+  const vendorEmail = 'vendor.pending@example.com';
+  const adminPasswordPlain = 'SeedAdmin!1';
+  const vendorPasswordPlain = 'SeedVendor!1';
+  const seededVendorPasswordPlain = 'SeedShopUser!1';
+
+  const adminPasswordHash = await argon2.hash(adminPasswordPlain);
+  const vendorPasswordHash = await argon2.hash(vendorPasswordPlain);
+
+  const admin = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: {
+      role: 'ADMIN',
+      passwordHash: adminPasswordHash,
+      name: 'Seed Admin',
+      emailVerifiedAt: new Date(),
+    },
+    create: {
+      email: adminEmail,
+      passwordHash: adminPasswordHash,
+      name: 'Seed Admin',
+      role: 'ADMIN',
+      emailVerifiedAt: new Date(),
+    },
+  });
+
+  const pendingVendor = await prisma.user.upsert({
+    where: { email: vendorEmail },
+    update: {
+      name: 'Seed Pending Vendor',
+      passwordHash: vendorPasswordHash,
+      role: 'BUYER',
+      emailVerifiedAt: null,
+      phoneNumber: null,
+      phoneVerifiedAt: null,
+    },
+    create: {
+      email: vendorEmail,
+      passwordHash: vendorPasswordHash,
+      name: 'Seed Pending Vendor',
+      role: 'BUYER',
+    },
+  });
+
+  await prisma.vendorApplication.deleteMany({ where: { userId: pendingVendor.id } });
+
+  await prisma.vendorApplication.create({
+    data: {
+      userId: pendingVendor.id,
+      legalName: 'Pending Vendor LLC',
+      country: 'Bosnia and Herzegovina',
+      status: 'PENDING',
+      submittedAt: new Date(Date.now() - 1000 * 60 * 60),
+      notes: 'Please upload business documents.',
+      identityVerificationStatus: 'PENDING',
+    },
+  });
+
+  console.log('Seeded admin and pending vendor users.');
+  console.log(`  Admin login → ${adminEmail} / ${adminPasswordPlain}`);
+  console.log(`  Pending vendor login → ${vendorEmail} / ${vendorPasswordPlain}`);
+
   // 1) Seed base categories (idempotent)
   const categories = [
     'Art & Crafts',
@@ -110,13 +173,14 @@ async function main() {
     const name = shopNames[i % shopNames.length] + ' ' + (i + 1);
     // Create a vendor user for this shop (ownerId is required & unique)
     const email = `${slugify(name)}@seed.local`;
+    const ownerPasswordHash = await argon2.hash(seededVendorPasswordPlain);
     const owner = await prisma.user.upsert({
       where: { email },
-      update: { name },
+      update: { name, passwordHash: ownerPasswordHash, role: 'VENDOR' as any },
       create: {
         email,
         name,
-        passwordHash: 'seed',
+        passwordHash: ownerPasswordHash,
         role: 'VENDOR' as any,
       },
       select: { id: true },

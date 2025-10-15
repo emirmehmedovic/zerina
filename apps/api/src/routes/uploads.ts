@@ -9,8 +9,12 @@ const router = Router();
 
 // Ensure upload directory exists
 const uploadDir = path.resolve(__dirname, '../../uploads');
+const vendorDocsDir = path.join(uploadDir, 'vendor-docs');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
+}
+if (!fs.existsSync(vendorDocsDir)) {
+  fs.mkdirSync(vendorDocsDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
@@ -26,7 +30,11 @@ const storage = multer.diskStorage({
 
 // Allow only common image mime types, limit to 10 MB per file
 const ALLOWED_MIME = new Set([
-  'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
 ]);
 const upload = multer({
   storage,

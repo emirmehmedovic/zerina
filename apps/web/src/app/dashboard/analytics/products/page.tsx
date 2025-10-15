@@ -93,7 +93,7 @@ export default function ProductsAnalyticsPage() {
     return ((last.totalRevenueCents - first.totalRevenueCents) / first.totalRevenueCents) * 100;
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [days]);
+  useEffect(() => { load();   }, [days]);
 
   // Sort and filter products
   const filteredProducts = products

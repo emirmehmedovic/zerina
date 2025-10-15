@@ -46,7 +46,7 @@ export default function SeasonalAnalyticsPage() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [days]);
+  useEffect(() => { load();   }, [days]);
 
   // Export to CSV
   const exportCSV = (type: 'monthly' | 'weekday') => {

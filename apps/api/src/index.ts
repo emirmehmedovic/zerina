@@ -24,8 +24,10 @@ import blogRouter from './routes/blog';
 import accountRoutes from './routes/account';
 import productImagesRouter from './routes/product-images';
 import productVariantsRouter from './routes/product-variants';
+import vendorDocumentsRouter from './routes/vendor-documents';
 import chatRouter from './routes/chat';
 import { csrfProtect } from './middleware/csrf';
+import stripeWebhookRouter from './routes/stripe-webhook';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -40,6 +42,7 @@ app.use(cors({
   origin: ENV.corsOrigin,
   credentials: true,
 }));
+app.use('/api/v1/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
@@ -95,6 +98,7 @@ app.use('/api/v1/categories', categoriesRouter);
 app.use('/api/v1/products', productsRouter);
 app.use('/api/v1/shops', shopsRouter);
 app.use('/api/v1/uploads', uploadsRouter);
+app.use('/api/v1/vendor/documents', vendorDocumentsRouter);
 app.use('/api/v1/checkout', checkoutRouter);
 app.use('/api/v1/addresses', addressesRouter);
 app.use('/api/v1/orders', ordersRouter);
@@ -105,6 +109,7 @@ app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/admin/analytics', adminAnalyticsRouter);
 app.use('/api/v1/admin/analytics-v2', adminAnalyticsV2Router);
 app.use('/api/v1/chat', chatRouter);
+app.post('/api/v1/stripe/webhook', stripeWebhookRouter);
 
 // Product related routes
 app.use('/api/v1/products', productImagesRouter);

@@ -20,6 +20,7 @@ export default function Navbar() {
     { href: '/categories', label: 'Categories' },
     { href: '/shops', label: 'Artisans' },
     { href: '/artisan-chronicles', label: 'Chronicles' },
+    { href: '/become-a-seller', label: 'Become a seller' },
   ];
 
   useEffect(() => {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import AdminGuard from "./Guard";
-import { Home, LayoutDashboard, Package, ShoppingBag, Store, UserPlus, Menu, X, LifeBuoy, User, Shield, BarChart2 } from "lucide-react";
+import { Home, LayoutDashboard, Package, ShoppingBag, Store, UserPlus, Menu, X, LifeBuoy, User, Shield, BarChart2, ClipboardList } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { Menu as HeadlessMenu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
@@ -20,6 +20,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin", label: "Overview", icon: <LayoutDashboard className="h-4 w-4 mr-2" /> },
     { href: "/admin/analytics", label: "Analytics", icon: <BarChart2 className="h-4 w-4 mr-2" /> },
     { href: "/admin/inventory", label: "Inventory", icon: <Package className="h-4 w-4 mr-2" /> },
+    { href: "/admin/vendor-applications", label: "Vendor Applications", icon: <ClipboardList className="h-4 w-4 mr-2" /> },
     { href: "/admin/products/new", label: "New Product", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
     { href: "/admin/shops", label: "Shops", icon: <Store className="h-4 w-4 mr-2" /> },
     { href: "/admin/admins/new", label: "Create Admin", icon: <UserPlus className="h-4 w-4 mr-2" /> },
@@ -31,6 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (pathname === "/admin/inventory") return "Inventory Management";
     if (pathname === "/admin/products/new") return "Create New Product";
     if (pathname === "/admin/shops") return "Shops Management";
+    if (pathname === "/admin/vendor-applications") return "Vendor Applications";
     if (pathname === "/admin/categories") return "Categories";
     if (pathname === "/admin/admins/new") return "Create Admin Account";
     return "Admin Panel";

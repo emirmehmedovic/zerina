@@ -105,7 +105,7 @@ export default function CategoriesPageClient({ items, latestProducts }: { items:
     const el = picksRef.current;
     if (!el) return;
     let rafId: number;
-    let speed = 0.5; // px per frame
+    const speed = 0.5; // px per frame
     const tick = () => {
       if (!el) return;
       if (!picksPaused) {

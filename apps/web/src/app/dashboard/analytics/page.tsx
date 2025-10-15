@@ -46,7 +46,7 @@ export default function VendorAnalyticsPage() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [days]);
+  useEffect(() => { load();   }, [days]);
 
   const maxVal = useMemo(() => Math.max(1, ...series.map(s => s.totalCents)), [series]);
   const sparkPath = useMemo(() => {

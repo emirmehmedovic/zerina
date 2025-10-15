@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { ensureApprovedVendor } from '../middleware/vendor';
+import { ENV } from '../env';
 import { badRequest, notFound } from '../utils/errors';
 import { validateQuery } from '../utils/validate';
 import { badRequest as badReq } from '../utils/errors';
@@ -155,7 +157,7 @@ const productsVendorQuerySchema = z.object({
   archived: z.string().optional(),
 });
 
-router.get('/vendor/list', requireAuth, requireRole('VENDOR'), validateQuery(productsVendorQuerySchema), async (req, res) => {
+router.get('/vendor/list', requireAuth, requireRole('VENDOR'), ensureApprovedVendor, validateQuery(productsVendorQuerySchema), async (req, res) => {
   const user = (req as any).user as { sub: string };
   const { status, q, lowStock, lowStockThreshold = '5', take = 50, skip = 0, archived = '' } = (req as any).validated as any;
   const shop = await prisma.shop.findFirst({ where: { ownerId: user.sub } });
@@ -258,10 +260,22 @@ router.get('/id/:id', async (req, res) => {
 });
 
 // POST /api/v1/products - create a product
-router.post('/', requireAuth, requireRole('VENDOR'), async (req, res) => {
+router.post('/', requireAuth, requireRole('VENDOR'), ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
-  const shop = await prisma.shop.findFirst({ where: { ownerId: user.sub } });
+  const shop = await prisma.shop.findFirst({ where: { ownerId: user.sub }, select: { id: true, status: true } });
   if (!shop) return notFound(res, 'shop_not_found');
+  const productLimit = Math.max(0, ENV.vendorInitialProductLimit || 0);
+  if (productLimit > 0 && shop.status !== 'ACTIVE') {
+    const currentCount = await prisma.product.count({
+      where: {
+        shopId: shop.id,
+        status: { in: ['DRAFT', 'PUBLISHED', 'SUSPENDED'] },
+      },
+    });
+    if (currentCount >= productLimit) {
+      return res.status(403).json({ error: 'product_limit_reached', limit: productLimit });
+    }
+  }
   const schema = z.object({
     title: z.string().min(1).max(100),
     description: z.string().optional(),
@@ -367,7 +381,7 @@ router.post('/', requireAuth, requireRole('VENDOR'), async (req, res) => {
 });
 
 // PATCH /api/v1/products/:id - update a product
-router.patch('/:id', requireAuth, requireRole('VENDOR'), async (req, res) => {
+router.patch('/:id', requireAuth, requireRole('VENDOR'), ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const { id } = req.params;
   const shop = await prisma.shop.findFirst({ where: { ownerId: user.sub } });

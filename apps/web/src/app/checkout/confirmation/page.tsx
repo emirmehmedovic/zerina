@@ -56,8 +56,8 @@ export default function CheckoutConfirmationPage() {
         <div className="mb-6 rounded-2xl p-6 sm:p-8 ring-1 ring-rose-200/50 dark:ring-rose-400/20 bg-gradient-to-br from-rose-100/70 via-amber-100/60 to-rose-100/70">
           <div className="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
             <div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-amber-900 dark:text-amber-900">Hvala vam na narudžbi! 🎉</h1>
-              <p className="mt-2 text-sm sm:text-base text-amber-900/90 dark:text-amber-900/90">Primili smo vašu narudžbu. Uskoro ćete dobiti ažuriranja o statusu i dostavi.</p>
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-amber-900 dark:text-amber-900">Thank you for your order! 🎉</h1>
+              <p className="mt-2 text-sm sm:text-base text-amber-900/90 dark:text-amber-900/90">We’ve received your order. You’ll receive updates about its status and delivery soon.</p>
             </div>
             <div className="shrink-0 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold text-amber-900 dark:text-amber-900 ring-1 ring-rose-200/60 bg-white/60">
               <span aria-hidden>✅</span>

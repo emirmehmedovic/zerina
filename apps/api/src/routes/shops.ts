@@ -1,7 +1,10 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { ensureApprovedVendor } from '../middleware/vendor';
+import { ENV } from '../env';
 import { badRequest, forbidden, notFound } from '../utils/errors';
 
 const router = Router();
@@ -21,10 +24,26 @@ async function uniqueSlug(base: string) {
   }
 }
 
-// POST /api/v1/shops — create shop (VENDOR only, one shop per user)
-router.post('/', requireAuth, requireRole('VENDOR'), async (req, res) => {
-  const user = (req as any).user as { sub: string };
-  const schema = z.object({ name: z.string().min(3).max(100), description: z.string().max(2000).optional() });
+const SESSION_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function refreshSession(res: any, userId: string, role: 'BUYER' | 'VENDOR' | 'ADMIN') {
+  const token = jwt.sign({ sub: userId, role }, ENV.sessionSecret, { expiresIn: '7d' });
+  res.cookie(ENV.cookieName, token, {
+    httpOnly: true,
+    secure: ENV.cookieSecure,
+    sameSite: ENV.nodeEnv === 'production' ? 'none' : 'lax',
+    maxAge: SESSION_COOKIE_MAX_AGE_MS,
+    path: '/',
+  });
+}
+
+// POST /api/v1/shops — create a shop during onboarding (one per user)
+router.post('/', requireAuth, async (req, res) => {
+  const user = (req as any).user as { sub: string; role: 'BUYER' | 'VENDOR' | 'ADMIN' };
+  const schema = z.object({
+    name: z.string().min(3).max(100),
+    description: z.string().max(2000).optional(),
+  });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
 
@@ -37,10 +56,17 @@ router.post('/', requireAuth, requireRole('VENDOR'), async (req, res) => {
       ownerId: user.sub,
       name: parsed.data.name,
       description: parsed.data.description,
+      status: 'PENDING_APPROVAL',
       slug,
     },
     select: { id: true, name: true, slug: true, description: true, status: true, coverUrl: true, coverImageStorageKey: true },
   });
+
+  if (user.role !== 'VENDOR' && user.role !== 'ADMIN') {
+    await prisma.user.update({ where: { id: user.sub }, data: { role: 'VENDOR' } });
+    refreshSession(res, user.sub, 'VENDOR');
+  }
+
   res.status(201).json(shop);
 });
 

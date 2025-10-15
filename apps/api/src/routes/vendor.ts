@@ -1,26 +1,732 @@
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import type { IdentityVerificationStatus, VendorApplicationStatus } from '@prisma/client';
 import { prisma } from '../prisma';
 import { requireAuth } from '../middleware/auth';
+import { enqueueEmail } from '../lib/email';
+import { renderOrderShippedEmail } from '../emails/templates';
 import { z } from 'zod';
-import { badRequest, notFound } from '../utils/errors';
+import { badRequest } from '../utils/errors';
 import { validateQuery } from '../utils/validate';
+import { stripe } from '../lib/stripe';
+import { ENV } from '../env';
+import { createRateLimiter } from '../middleware/rateLimit';
+import { ensureApprovedVendor } from '../middleware/vendor';
+import { IdentityProviderClient } from '../lib/identity';
 
 const router = Router();
 
-// POST /api/v1/vendor/upgrade — upgrade current user to VENDOR role
-router.post('/upgrade', requireAuth, async (req, res) => {
-  const user = (req as any).user as { sub: string; role: 'BUYER'|'VENDOR'|'ADMIN' };
-  // If already vendor or admin, nothing to do
-  if (user.role === 'VENDOR' || user.role === 'ADMIN') {
-    return res.json({ ok: true, role: user.role });
+const vendorUpgradeLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000, // 1h window
+  maxRequests: 5,
+  keyPrefix: 'vendor-upgrade',
+  message: 'Previše pokušaja. Pokušajte ponovo kasnije.',
+});
+
+const identityClient = new IdentityProviderClient();
+
+type VendorApplicationSummary = {
+  id: string;
+  status: VendorApplicationStatus;
+  submittedAt: Date;
+  reviewedAt: Date | null;
+  notes: string | null;
+  rejectionReason: string | null;
+  identityVerificationStatus: IdentityVerificationStatus;
+  identityVerificationProvider: string | null;
+  identityVerificationCheckedAt: Date | null;
+  identityVerificationNotes: string | null;
+  vendorDocuments: Array<{
+    id: string;
+    originalName: string;
+    mimeType: string;
+    sizeBytes: number;
+    storageKey: string;
+    uploadedAt: Date;
+  }>;
+};
+
+const vendorDocumentSelect = {
+  id: true,
+  originalName: true,
+  mimeType: true,
+  sizeBytes: true,
+  storageKey: true,
+  uploadedAt: true,
+  applicationId: true,
+} as const;
+
+async function reassignVendorDocuments(params: {
+  userId: string;
+  applicationId: string;
+  documentIds: string[];
+}) {
+  const { userId, applicationId, documentIds } = params;
+
+  if (documentIds.length > 0) {
+    const docs = await prisma.vendorDocument.findMany({
+      where: { id: { in: documentIds }, userId },
+      select: { id: true, applicationId: true },
+    });
+
+    if (docs.length !== documentIds.length) {
+      const error = new Error('INVALID_DOCUMENTS');
+      (error as any).code = 'INVALID_DOCUMENTS';
+      throw error;
+    }
+
+    const conflicting = docs.find((doc) => doc.applicationId && doc.applicationId !== applicationId);
+    if (conflicting) {
+      const error = new Error('DOCUMENT_IN_USE');
+      (error as any).code = 'DOCUMENT_IN_USE';
+      throw error;
+    }
   }
-  // Upgrade only BUYER -> VENDOR
-  const updated = await prisma.user.update({ where: { id: user.sub }, data: { role: 'VENDOR' }, select: { id: true, role: true } });
-  return res.json({ ok: true, role: updated.role });
+
+  await prisma.vendorDocument.updateMany({
+    where: documentIds.length
+      ? { userId, applicationId, id: { notIn: documentIds } }
+      : { userId, applicationId },
+    data: { applicationId: null },
+  });
+
+  if (documentIds.length) {
+    await prisma.vendorDocument.updateMany({
+      where: { userId, id: { in: documentIds } },
+      data: { applicationId },
+    });
+  }
+}
+
+const vendorApplicationBodySchema = z.object({
+  legalName: z.string().trim().min(3).max(255).optional(),
+  country: z.string().trim().min(2).max(120).optional(),
+  address: z.string().trim().min(5).max(500).optional(),
+  contactPhone: z.string().trim().min(6).max(32).optional(),
+  documentIds: z.array(z.string().cuid()).max(10).optional(),
+});
+
+const SESSION_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function refreshSessionCookie(res: Response, userId: string, role: 'BUYER' | 'VENDOR' | 'ADMIN') {
+  const token = jwt.sign({ sub: userId, role }, ENV.sessionSecret, { expiresIn: '7d' });
+  res.cookie(ENV.cookieName, token, {
+    httpOnly: true,
+    secure: ENV.cookieSecure,
+    sameSite: ENV.nodeEnv === 'production' ? 'none' : 'lax',
+    maxAge: SESSION_COOKIE_MAX_AGE_MS,
+    path: '/',
+  });
+}
+
+async function verifyCaptchaToken(req: Request, res: Response): Promise<boolean> {
+  if (!ENV.captchaSecretKey) {
+    return true;
+  }
+
+  const captchaToken = (req.body?.captchaToken ?? req.headers['x-captcha-token']) as string | undefined;
+  if (!captchaToken) {
+    res.status(400).json({ error: 'captcha_required' });
+    return false;
+  }
+
+  try {
+    if (ENV.captchaProvider === 'recaptcha') {
+      const params = new URLSearchParams();
+      params.append('secret', ENV.captchaSecretKey);
+      params.append('response', captchaToken);
+      if (req.ip) {
+        params.append('remoteip', req.ip);
+      }
+
+      const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Captcha provider HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as { success: boolean; score?: number; ['error-codes']?: string[] };
+      if (!data.success || (typeof data.score === 'number' && data.score < ENV.captchaMinScore)) {
+        res.status(400).json({
+          error: 'captcha_failed',
+          details: { score: data.score ?? null, errors: data['error-codes'] ?? [] },
+        });
+        return false;
+      }
+
+      return true;
+    }
+
+    res.status(500).json({ error: 'captcha_provider_not_supported' });
+    return false;
+  } catch (error) {
+    console.error('[vendor] captcha verification failed', error);
+    res.status(502).json({ error: 'captcha_verification_failed' });
+    return false;
+  }
+}
+
+async function captchaGuard(req: Request, res: Response, next: NextFunction) {
+  const captchaOk = await verifyCaptchaToken(req, res);
+  if (!captchaOk) {
+    return;
+  }
+
+  if (req.body && typeof req.body === 'object') {
+    delete (req.body as Record<string, unknown>).captchaToken;
+  }
+
+  return next();
+}
+
+router.post('/stripe/connect', requireAuth, ensureApprovedVendor, async (req, res) => {
+  const user = (req as any).user as { sub: string; email?: string };
+
+  try {
+    const shop = await prisma.shop.findUnique({
+      where: { ownerId: user.sub },
+    }) as any;
+    if (!shop) {
+      return res.status(404).json({ error: 'shop_not_found' });
+    }
+    if (shop.status !== 'ACTIVE') {
+      return res.status(403).json({ error: 'shop_not_active', status: shop.status });
+    }
+
+    const owner = await prisma.user.findUnique({
+      where: { id: shop.ownerId },
+      select: { email: true, name: true },
+    });
+
+    let accountId = shop.stripeAccountId ?? null;
+
+    if (!accountId) {
+      const account = await stripe.accounts.create({
+        type: 'express',
+        email: owner?.email ?? user.email,
+        business_profile: {
+          name: shop.name || undefined,
+          product_description: 'Marketplace vendor',
+          support_email: owner?.email ?? user.email,
+          url: ENV.frontendUrl,
+        },
+        capabilities: {
+          transfers: { requested: true },
+          card_payments: { requested: true },
+        },
+      });
+
+      const updateData = {
+        stripeAccountId: account.id,
+        stripeOnboardedAt: account.details_submitted ? new Date() : null,
+        stripeDetailsSubmitted: Boolean(account.details_submitted),
+        stripeChargesEnabled: Boolean(account.charges_enabled),
+        stripePayoutsEnabled: Boolean(account.payouts_enabled),
+        stripeDefaultCurrency: account.default_currency ?? null,
+      };
+
+      await prisma.shop.update({
+        where: { id: shop.id },
+        data: updateData as any,
+      });
+
+      accountId = account.id;
+    }
+
+    const accountLink = await stripe.accountLinks.create({
+      account: accountId!,
+      refresh_url: `${ENV.frontendUrl}/dashboard/settings/payments?refresh=true`,
+      return_url: `${ENV.frontendUrl}/dashboard/settings/payments?connected=true`,
+      type: 'account_onboarding',
+    });
+
+    return res.json({ url: accountLink.url });
+  } catch (error) {
+    console.error('[vendor] stripe connect error', error);
+    return res.status(500).json({ error: 'stripe_connect_failed' });
+  }
+});
+
+router.get('/stripe/status', requireAuth, ensureApprovedVendor, async (req, res) => {
+  const user = (req as any).user as { sub: string };
+
+  try {
+    const shop = await prisma.shop.findUnique({
+      where: { ownerId: user.sub },
+    } as any);
+
+    const accountId = shop?.stripeAccountId ?? null;
+    if (!shop) {
+      return res.status(404).json({ error: 'shop_not_found' });
+    }
+    if (shop.status !== 'ACTIVE') {
+      return res.status(403).json({ error: 'shop_not_active', status: shop.status });
+    }
+    if (!accountId) {
+      return res.json({ connected: false });
+    }
+
+    const account = await stripe.accounts.retrieve(accountId);
+    const connected = Boolean(account.details_submitted && account.charges_enabled);
+
+    const updateData: any = {
+      stripeDetailsSubmitted: Boolean(account.details_submitted),
+      stripeChargesEnabled: Boolean(account.charges_enabled),
+      stripePayoutsEnabled: Boolean(account.payouts_enabled),
+      stripeDefaultCurrency: account.default_currency ?? null,
+    };
+
+    if (connected && !shop.stripeOnboardedAt) {
+      updateData.stripeOnboardedAt = new Date();
+    }
+
+    await prisma.shop.update({ where: { id: shop.id }, data: updateData as any });
+
+    return res.json({
+      connected,
+      payouts_enabled: account.payouts_enabled,
+      charges_enabled: account.charges_enabled,
+      details_submitted: account.details_submitted,
+      requirements: account.requirements?.currently_due ?? [],
+      default_currency: account.default_currency,
+    });
+  } catch (error) {
+    console.error('[vendor] stripe status error', error);
+    return res.status(500).json({ error: 'stripe_status_failed' });
+  }
+});
+
+router.post('/stripe/dashboard-link', requireAuth, ensureApprovedVendor, async (req, res) => {
+  const user = (req as any).user as { sub: string };
+
+  try {
+    const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub } });
+    const accountId = shop?.stripeAccountId ?? null;
+    if (!shop) {
+      return res.status(404).json({ error: 'shop_not_found' });
+    }
+    if (shop.status !== 'ACTIVE') {
+      return res.status(403).json({ error: 'shop_not_active', status: shop.status });
+    }
+    if (!accountId) {
+      return res.status(404).json({ error: 'account_not_connected' });
+    }
+
+    const loginLink = await stripe.accounts.createLoginLink(accountId);
+
+    return res.json({ url: loginLink.url });
+  } catch (error) {
+    console.error('[vendor] stripe dashboard link error', error);
+    return res.status(500).json({ error: 'stripe_dashboard_link_failed' });
+  }
+});
+
+const discountCodeBodySchema = z.object({
+  code: z.string().min(3).max(32),
+  description: z.string().max(255).optional(),
+  percentOff: z.number().int().min(1).max(100),
+  expiresAt: z.string().optional(),
+  maxUsesPerUser: z.number().int().min(1).max(50).optional(),
+});
+
+// GET /api/v1/vendor/discount-codes — list discount codes for vendor
+router.get('/discount-codes', requireAuth, ensureApprovedVendor, async (req, res) => {
+  const user = (req as any).user as { sub: string };
+  const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
+  if (!shop) return res.json({ items: [] });
+
+  const codes = await prisma.discountCode.findMany({
+    where: { shopId: shop.id },
+    orderBy: { createdAt: 'desc' },
+    include: { _count: { select: { redemptions: true } } },
+  });
+
+  const items = codes.map((code: (typeof codes)[number]) => {
+    const { _count, ...rest } = code;
+    return {
+      ...rest,
+      redemptionsCount: _count.redemptions,
+    };
+  });
+
+  res.json({ items });
+});
+
+// POST /api/v1/vendor/discount-codes — create a new discount code
+router.post('/discount-codes', requireAuth, ensureApprovedVendor, async (req, res) => {
+  const user = (req as any).user as { sub: string };
+  const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
+  if (!shop) return res.status(403).json({ error: 'forbidden' });
+
+  const parsed = discountCodeBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_body', code: 'INVALID_BODY', details: parsed.error.flatten() });
+  }
+
+  const body = parsed.data;
+  const normalizedCode = body.code.trim().toUpperCase();
+  const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
+  if (expiresAt && isNaN(expiresAt.getTime())) {
+    return badRequest(res, 'invalid_expiry');
+  }
+
+  try {
+    const created = await prisma.discountCode.create({
+      data: {
+        shopId: shop.id,
+        code: normalizedCode,
+        description: body.description,
+        percentOff: body.percentOff,
+        expiresAt,
+        maxUsesPerUser: body.maxUsesPerUser ?? 1,
+      },
+    });
+    res.status(201).json(created);
+  } catch (err: any) {
+    if (err?.code === 'P2002') {
+      return res.status(409).json({ error: 'code_exists', code: 'CONFLICT' });
+    }
+    throw err;
+  }
+});
+
+// PATCH /api/v1/vendor/discount-codes/:id/status — toggle active flag
+router.patch('/discount-codes/:id/status', requireAuth, ensureApprovedVendor, async (req, res) => {
+  const user = (req as any).user as { sub: string };
+  const { id } = req.params;
+  const schema = z.object({ active: z.boolean() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_body', code: 'INVALID_BODY', details: parsed.error.flatten() });
+  }
+
+  const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
+  if (!shop) return res.status(403).json({ error: 'forbidden' });
+
+  const existing = await prisma.discountCode.findUnique({ where: { id }, select: { id: true, shopId: true } });
+  if (!existing || existing.shopId !== shop.id) return res.status(404).json({ error: 'not_found' });
+
+  const updated = await prisma.discountCode.update({ where: { id }, data: { active: parsed.data.active } });
+  res.json(updated);
+});
+
+// POST /api/v1/vendor/upgrade — submit vendor application (no auto role escalation)
+router.post('/upgrade', requireAuth, captchaGuard, vendorUpgradeLimiter, async (req, res) => {
+  const authUser = (req as any).user as { sub: string; role: 'BUYER' | 'VENDOR' | 'ADMIN' };
+
+  const dbUser = await prisma.user.findUnique({ where: { id: authUser.sub } });
+  if (!dbUser) {
+    return res.status(404).json({ error: 'user_not_found' });
+  }
+
+  const userWithVerification = dbUser as typeof dbUser & {
+    emailVerifiedAt?: Date | null;
+    phoneNumber?: string | null;
+    phoneVerifiedAt?: Date | null;
+  };
+
+  if (dbUser.role === 'ADMIN') {
+    return res.json({
+      status: 'already_admin',
+      verification: {
+        emailVerified: Boolean(userWithVerification.emailVerifiedAt),
+        phoneVerified: Boolean(userWithVerification.phoneVerifiedAt),
+        phoneRequired: ENV.requirePhoneVerification,
+      },
+    });
+  }
+
+  const parsed = vendorApplicationBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
+  }
+
+  const verificationMeta = {
+    emailVerified: Boolean(userWithVerification.emailVerifiedAt),
+    phoneVerified: Boolean(userWithVerification.phoneVerifiedAt),
+    phoneRequired: ENV.requirePhoneVerification,
+  };
+
+  const selectApplicationFields = {
+    id: true,
+    status: true,
+    submittedAt: true,
+    reviewedAt: true,
+    notes: true,
+    rejectionReason: true,
+    legalName: true,
+    country: true,
+    address: true,
+    contactPhone: true,
+    identityVerificationStatus: true,
+    identityVerificationProvider: true,
+    identityVerificationCheckedAt: true,
+    identityVerificationNotes: true,
+    securityDepositRequired: true,
+    securityDepositStatus: true,
+    securityDepositAmountCents: true,
+    securityDepositCurrency: true,
+    securityDepositPaymentIntentId: true,
+    vendorDocuments: { select: vendorDocumentSelect },
+  } as const;
+
+  let existing = await prisma.vendorApplication.findFirst({
+    where: { userId: dbUser.id },
+    orderBy: { submittedAt: 'desc' },
+    select: selectApplicationFields,
+  });
+
+  const data = parsed.data;
+  const securityDepositRequired = Boolean(ENV.securityDepositEnabled);
+
+  const legalName = data.legalName ?? existing?.legalName ?? dbUser.name ?? `Vendor ${dbUser.id.slice(0, 6)}`;
+  const country = data.country ?? existing?.country ?? 'Unknown';
+  const address = data.address !== undefined ? data.address : existing?.address ?? null;
+  const contactPhone = data.contactPhone !== undefined ? data.contactPhone : existing?.contactPhone ?? null;
+  const documentIds = Array.isArray(data.documentIds)
+    ? data.documentIds
+    : (existing?.vendorDocuments?.map((doc) => doc.id) ?? []);
+
+  let roleChanged = false;
+  let finalRole: 'BUYER' | 'VENDOR' | 'ADMIN' = dbUser.role as any;
+
+  if (existing && existing.status === 'APPROVED') {
+    if (dbUser.role !== 'VENDOR') {
+      await prisma.user.update({ where: { id: dbUser.id }, data: { role: 'VENDOR' } });
+      roleChanged = true;
+      finalRole = 'VENDOR';
+    }
+
+    if (roleChanged) {
+      refreshSessionCookie(res, dbUser.id, finalRole);
+    }
+
+    return res.json({
+      status: existing.status,
+      application: existing,
+      verification: verificationMeta,
+    });
+  }
+
+  if (existing && existing.status === 'PENDING') {
+    existing = await prisma.vendorApplication.update({
+      where: { id: existing.id },
+      data: {
+        legalName,
+        country,
+        address,
+        contactPhone,
+        securityDepositRequired,
+        securityDepositStatus: securityDepositRequired ? 'PENDING' : 'NOT_REQUIRED',
+        securityDepositAmountCents: securityDepositRequired ? ENV.securityDepositAmountCents || 0 : null,
+        securityDepositCurrency: securityDepositRequired ? ENV.securityDepositCurrency : null,
+      },
+      select: selectApplicationFields,
+    });
+  }
+
+  let application = existing;
+
+  if (!application) {
+    application = await prisma.vendorApplication.create({
+      data: {
+        userId: dbUser.id,
+        legalName,
+        country,
+        address,
+        contactPhone,
+        securityDepositRequired,
+        securityDepositStatus: securityDepositRequired ? 'PENDING' : 'NOT_REQUIRED',
+        securityDepositAmountCents: securityDepositRequired ? ENV.securityDepositAmountCents || 0 : null,
+        securityDepositCurrency: securityDepositRequired ? ENV.securityDepositCurrency : null,
+        identityVerificationStatus: 'PENDING',
+      } as any,
+      select: selectApplicationFields,
+    });
+  }
+
+  try {
+    await reassignVendorDocuments({ userId: dbUser.id, applicationId: application.id, documentIds });
+  } catch (error: any) {
+    const code = error?.code;
+    if (code === 'INVALID_DOCUMENTS') {
+      return res.status(400).json({ error: 'invalid_document_ids' });
+    }
+    if (code === 'DOCUMENT_IN_USE') {
+      return res.status(409).json({ error: 'document_in_use' });
+    }
+    throw error;
+  }
+
+  let identityVerification = {
+    status: 'PENDING' as 'NOT_REQUIRED' | 'PENDING' | 'VERIFIED' | 'FAILED',
+    provider: ENV.identityProvider ?? null,
+    reference: null as string | null,
+    score: null as number | null,
+    reason: null as string | null,
+  };
+
+  try {
+    if (!existing && ENV.identityProvider) {
+      const identityResult = await identityClient.submitVerification({
+        applicantId: dbUser.id,
+        legalName,
+        email: dbUser.email,
+        country,
+        referenceId: application.id,
+      });
+
+      let mappedStatus: 'PENDING' | 'VERIFIED' | 'FAILED' = 'PENDING';
+      if (identityResult.status === 'verified') mappedStatus = 'VERIFIED';
+      if (identityResult.status === 'failed') mappedStatus = 'FAILED';
+
+      const scoreBelowThreshold =
+        typeof identityResult.score === 'number' && identityResult.score < ENV.identityMinScore;
+      if (scoreBelowThreshold) {
+        mappedStatus = 'FAILED';
+      }
+
+      const checkedAt = mappedStatus === 'VERIFIED' || mappedStatus === 'FAILED' ? new Date() : null;
+      const notes =
+        identityResult.reason ?? (scoreBelowThreshold ? `score_below_threshold:${identityResult.score}` : null);
+
+      await prisma.vendorApplication.update({
+        where: { id: application.id },
+        data: {
+          identityVerificationStatus: mappedStatus,
+          identityVerificationProvider: identityResult.provider,
+          identityVerificationId: identityResult.reference,
+          identityVerificationCheckedAt: checkedAt,
+          identityVerificationNotes: notes,
+        } as any,
+      });
+
+      identityVerification = {
+        status: mappedStatus,
+        provider: identityResult.provider,
+        reference: identityResult.reference,
+        score: identityResult.score ?? null,
+        reason: notes,
+      };
+    }
+  } catch (error) {
+    console.error('[vendor] identity submission failed', error);
+    if (!existing) {
+      await prisma.vendorApplication.update({
+        where: { id: application.id },
+        data: {
+          identityVerificationStatus: 'FAILED',
+          identityVerificationNotes: 'identity_submission_failed',
+          identityVerificationCheckedAt: new Date(),
+        } as any,
+      });
+
+      identityVerification = {
+        status: 'FAILED',
+        provider: ENV.identityProvider ?? null,
+        reference: null,
+        score: null,
+        reason: 'identity_submission_failed',
+      };
+    }
+  }
+
+  if (dbUser.role !== 'VENDOR') {
+    await prisma.user.update({ where: { id: dbUser.id }, data: { role: 'VENDOR' } });
+    roleChanged = true;
+    finalRole = 'VENDOR';
+  }
+
+  const finalApplication = await prisma.vendorApplication.findUnique({
+    where: { id: application.id },
+    select: selectApplicationFields,
+  });
+
+  if (roleChanged) {
+    refreshSessionCookie(res, dbUser.id, finalRole);
+  }
+
+  return res.status(201).json({
+    status: finalApplication?.status ?? application.status,
+    application: finalApplication ?? application,
+    securityDeposit: securityDepositRequired
+      ? {
+          required: true,
+          amountCents: ENV.securityDepositAmountCents || 0,
+          currency: ENV.securityDepositCurrency,
+        }
+      : { required: false },
+    identityVerification,
+    verification: verificationMeta,
+  });
+});
+
+router.get('/application-status', requireAuth, async (req, res) => {
+  const authUser = (req as any).user as { sub: string };
+
+  const user = await prisma.user.findUnique({
+    where: { id: authUser.sub },
+  });
+
+  if (!user) {
+    return res.status(404).json({ error: 'user_not_found' });
+  }
+
+  const application = (await prisma.vendorApplication.findFirst({
+    where: { userId: user.id },
+    orderBy: { submittedAt: 'desc' },
+    select: {
+      id: true,
+      status: true,
+      submittedAt: true,
+      reviewedAt: true,
+      notes: true,
+      rejectionReason: true,
+      identityVerificationStatus: true,
+      identityVerificationProvider: true,
+      identityVerificationCheckedAt: true,
+      identityVerificationNotes: true,
+      vendorDocuments: { select: vendorDocumentSelect },
+    },
+  })) as VendorApplicationSummary | null;
+
+  const requiresSecurityDeposit = Boolean(
+    ENV.securityDepositEnabled && application && application.status !== 'REJECTED'
+  );
+
+  const securityDeposit = requiresSecurityDeposit
+    ? {
+        required: true,
+        amountCents: ENV.securityDepositAmountCents || 0,
+        currency: ENV.securityDepositCurrency,
+      }
+    : { required: false, amountCents: 0, currency: ENV.securityDepositCurrency };
+
+  const userWithContact = user as typeof user & {
+    emailVerifiedAt?: Date | null;
+    phoneNumber?: string | null;
+    phoneVerifiedAt?: Date | null;
+  };
+
+  res.json({
+    user: {
+      email: userWithContact.email,
+      emailVerified: Boolean(userWithContact.emailVerifiedAt),
+      phoneNumber: userWithContact.phoneNumber ?? null,
+      phoneVerified: Boolean(userWithContact.phoneVerifiedAt),
+      phoneRequired: ENV.requirePhoneVerification,
+    },
+    application,
+    securityDeposit,
+  });
 });
 
 // GET /api/v1/vendor/overview — stats for the current vendor's shop
-router.get('/overview', requireAuth, async (req, res) => {
+router.get('/overview', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string; role: 'BUYER'|'VENDOR'|'ADMIN' };
   // Find the vendor's shop
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true, name: true, slug: true, status: true } });
@@ -61,7 +767,7 @@ const vendorOrdersQuerySchema = z.object({
 });
 
 // GET /api/v1/vendor/products — list products for current vendor with filters
-router.get('/products', requireAuth, validateQuery(vendorProductsQuerySchema), async (req, res) => {
+router.get('/products', requireAuth, ensureApprovedVendor, validateQuery(vendorProductsQuerySchema), async (req, res) => {
   const user = (req as any).user as { sub: string; role: 'BUYER'|'VENDOR'|'ADMIN' };
   const { q, status, lowStock, lowStockThreshold = '5', take = 50, skip = 0 } = (req as any).validated as any;
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
@@ -83,7 +789,7 @@ router.get('/products', requireAuth, validateQuery(vendorProductsQuerySchema), a
 });
 
 // GET /api/v1/vendor/analytics/customer-insights — customer segmentation and geographic data
-router.get('/analytics/customer-insights', requireAuth, async (req, res) => {
+router.get('/analytics/customer-insights', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const days = Math.max(1, Math.min(365, Number((req.query as any).days) || 90));
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
@@ -133,7 +839,7 @@ router.get('/analytics/customer-insights', requireAuth, async (req, res) => {
 export default router;
  
 // GET /api/v1/vendor/orders — list orders for the vendor's shop
-router.get('/orders', requireAuth, validateQuery(vendorOrdersQuerySchema), async (req, res) => {
+router.get('/orders', requireAuth, ensureApprovedVendor, validateQuery(vendorOrdersQuerySchema), async (req, res) => {
   const user = (req as any).user as { sub: string };
   const { status, take = 20, skip = 0, from, to, q = '' } = (req as any).validated as any;
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
@@ -174,7 +880,30 @@ router.get('/orders', requireAuth, validateQuery(vendorOrdersQuerySchema), async
         status: true,
         createdAt: true,
         buyer: { select: { id: true, email: true, name: true } },
-        items: { select: { id: true, productId: true, variantId: true, quantity: true, priceCents: true } },
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            variantId: true,
+            quantity: true,
+            priceCents: true,
+            product: {
+              select: {
+                title: true,
+                slug: true,
+                images: { take: 1, select: { storageKey: true } },
+              },
+            },
+            variant: {
+              select: {
+                id: true,
+                attributes: true,
+              },
+            },
+          },
+        },
+        shippingAddress: { select: { street: true, city: true, postalCode: true, country: true } },
+        billingAddress: { select: { street: true, city: true, postalCode: true, country: true } },
       },
     }),
     prisma.order.count({ where }),
@@ -183,22 +912,80 @@ router.get('/orders', requireAuth, validateQuery(vendorOrdersQuerySchema), async
 });
 
 // PATCH /api/v1/vendor/orders/:id/status — update order status (owner shop only)
-router.patch('/orders/:id/status', requireAuth, async (req, res) => {
+router.patch('/orders/:id/status', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const { id } = req.params;
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
   if (!shop) return res.status(403).json({ error: 'forbidden' });
-  const order = await prisma.order.findUnique({ where: { id }, select: { id: true, shopId: true } });
+  const order = await prisma.order.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      shopId: true,
+      status: true,
+      shippedNotifiedAt: true,
+      buyer: { select: { email: true, name: true } },
+      shop: { select: { name: true } },
+    },
+  });
   if (!order || order.shopId !== shop.id) return res.status(404).json({ error: 'not_found' });
   const schema = z.object({ status: z.enum(['PROCESSING','SHIPPED','DELIVERED','CANCELLED']) });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
-  const updated = await prisma.order.update({ where: { id }, data: { status: parsed.data.status }, select: { id: true, status: true } });
+  const updated = await prisma.order.update({
+    where: { id },
+    data: { status: parsed.data.status },
+    select: { id: true, status: true, shippedNotifiedAt: true },
+  });
+
+  if (parsed.data.status === 'SHIPPED' && !order.shippedNotifiedAt && order.buyer?.email) {
+    sendShipmentEmail(order.id).catch((err) => {
+      console.error('[vendor] failed to send shipment email', err);
+    });
+  }
+
   res.json(updated);
 });
 
+async function sendShipmentEmail(orderId: string) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      buyer: { select: { email: true, name: true } },
+      shop: { select: { name: true } },
+      items: {
+        select: {
+          product: { select: { title: true } },
+          quantity: true,
+        },
+      },
+    },
+  });
+
+  if (!order || !order.buyer?.email || order.shippedNotifiedAt) return;
+
+  const email = renderOrderShippedEmail({
+    orderId: order.id,
+    buyerName: order.buyer.name,
+    shopName: order.shop?.name,
+    items: order.items.map((item) => `${item.quantity} × ${item.product?.title ?? 'Product'}`),
+  });
+
+  await enqueueEmail({
+    to: order.buyer.email,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+  });
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { shippedNotifiedAt: new Date() },
+  });
+}
+
 // GET /api/v1/vendor/analytics/sales?days=30 — sales totals per day and top products
-router.get('/analytics/sales', requireAuth, async (req, res) => {
+router.get('/analytics/sales', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const days = Math.max(1, Math.min(365, Number((req.query as any).days) || 30));
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
@@ -246,7 +1033,7 @@ router.get('/analytics/sales', requireAuth, async (req, res) => {
 });
 
 // GET /api/v1/vendor/analytics/kpis?days=30 — overall KPIs for period
-router.get('/analytics/kpis', requireAuth, async (req, res) => {
+router.get('/analytics/kpis', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const days = Math.max(1, Math.min(365, Number((req.query as any).days) || 30));
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
@@ -265,7 +1052,7 @@ router.get('/analytics/kpis', requireAuth, async (req, res) => {
 });
 
 // GET /api/v1/vendor/analytics/top-products?limit=10&days=30 — top products by revenue
-router.get('/analytics/top-products', requireAuth, async (req, res) => {
+router.get('/analytics/top-products', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const limit = Math.max(1, Math.min(50, Number((req.query as any).limit) || 10));
   const days = Math.max(1, Math.min(365, Number((req.query as any).days) || 30));
@@ -296,7 +1083,7 @@ router.get('/analytics/top-products', requireAuth, async (req, res) => {
 });
 
 // GET /api/v1/vendor/analytics/top-customers?limit=10&days=30 — top customers by revenue (buyerId only)
-router.get('/analytics/top-customers', requireAuth, async (req, res) => {
+router.get('/analytics/top-customers', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const limit = Math.max(1, Math.min(50, Number((req.query as any).limit) || 10));
   const days = Math.max(1, Math.min(365, Number((req.query as any).days) || 30));
@@ -321,7 +1108,7 @@ router.get('/analytics/top-customers', requireAuth, async (req, res) => {
 });
 
 // GET /api/v1/vendor/analytics/product/:productId?days=90 — detailed analytics for a specific product
-router.get('/analytics/product/:productId', requireAuth, async (req, res) => {
+router.get('/analytics/product/:productId', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const { productId } = req.params;
   const days = Math.max(1, Math.min(365, Number((req.query as any).days) || 90));
@@ -446,7 +1233,7 @@ router.get('/analytics/product/:productId', requireAuth, async (req, res) => {
 });
 
 // GET /api/v1/vendor/analytics/seasonal?days=365 — seasonal analysis across all products
-router.get('/analytics/seasonal', requireAuth, async (req, res) => {
+router.get('/analytics/seasonal', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const days = Math.max(90, Math.min(730, Number((req.query as any).days) || 365)); // At least 90 days, max 2 years
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
@@ -515,7 +1302,7 @@ router.get('/analytics/seasonal', requireAuth, async (req, res) => {
 });
 
 // GET /api/v1/vendor/analytics/projections?days=90 — sales projections based on historical data
-router.get('/analytics/projections', requireAuth, async (req, res) => {
+router.get('/analytics/projections', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const days = Math.max(30, Math.min(365, Number((req.query as any).days) || 90));
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
@@ -620,7 +1407,7 @@ router.get('/analytics/projections', requireAuth, async (req, res) => {
   });
 });
 // GET /api/v1/vendor/analytics/status-counts — counts of orders by status for vendor's shop
-router.get('/analytics/status-counts', requireAuth, async (req, res) => {
+router.get('/analytics/status-counts', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const shop = await prisma.shop.findUnique({ where: { ownerId: user.sub }, select: { id: true } });
   if (!shop) return res.json({ counts: {} });
@@ -631,7 +1418,7 @@ router.get('/analytics/status-counts', requireAuth, async (req, res) => {
 });
 
 // GET /api/v1/vendor/inventory/low-stock?threshold=5&take=10 — low stock products for vendor's shop
-router.get('/inventory/low-stock', requireAuth, async (req, res) => {
+router.get('/inventory/low-stock', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
   const threshold = Number((req.query as any).threshold) || 5;
   const take = Number((req.query as any).take) || 10;

@@ -16,8 +16,12 @@ export function imageUrl(key?: string | null): string {
   // Absolute URL already
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
 
-  // Ensure leading slash when joining with API_URL
-  const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  return `${API_URL}${path}`;
+  // Normalize relative keys to point at /uploads
+  const withoutLeadingSlash = trimmed.replace(/^\/+/, "");
+  const normalized = withoutLeadingSlash.startsWith("uploads/")
+    ? withoutLeadingSlash
+    : `uploads/${withoutLeadingSlash}`;
+
+  return `${API_URL}/${normalized}`;
 }
 

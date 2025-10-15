@@ -74,7 +74,7 @@ export default function ProductAnalyticsPage() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id, days]);
+  useEffect(() => { load();   }, [id, days]);
 
   const series = data?.series || [];
   const maxVal = useMemo(() => Math.max(1, ...series.map(s => s.revenueCents)), [series]);

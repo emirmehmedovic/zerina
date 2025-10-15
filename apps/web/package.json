@@ -12,6 +12,8 @@
   "dependencies": {
     "@developer-hub/liquid-glass": "^1.2.3",
     "@headlessui/react": "^2.2.9",
+    "@stripe/react-stripe-js": "^5.2.0",
+    "@stripe/stripe-js": "^8.0.0",
     "class-variance-authority": "^0.7.1",
     "d3": "^7.9.0",
     "framer-motion": "^12.23.22",

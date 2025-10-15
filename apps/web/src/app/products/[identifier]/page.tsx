@@ -149,7 +149,7 @@ export default function ProductDetailPage() {
         const url = shopId
           ? `${API_URL}/api/v1/products?shopId=${encodeURIComponent(shopId)}&take=24`
           : `${API_URL}/api/v1/products?shopSlug=${encodeURIComponent(shopSlug!)}&take=24`;
-        let res = await fetch(url, { cache: 'no-store' });
+        const res = await fetch(url, { cache: 'no-store' });
         let items: any[] = [];
         if (res.ok) {
           const data = await res.json();
