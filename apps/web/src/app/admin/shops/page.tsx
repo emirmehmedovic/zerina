@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { API_URL } from "@/lib/api";
+import { getCsrfToken } from "@/lib/csrf";
 import { useToast } from "@/components/ToastProvider";
 import { Search, CheckCircle, XCircle, AlertTriangle, Eye, Store, ShieldCheck, ShieldAlert, ShieldClose } from 'lucide-react';
 
@@ -65,9 +66,10 @@ export default function AdminShopsPage() {
 
   const setShopStatus = async (id: string, newStatus: Shop["status"]) => {
     try {
+      const csrf = await getCsrfToken();
       const res = await fetch(`${API_URL}/api/v1/shops/${id}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
         credentials: "include",
         body: JSON.stringify({ status: newStatus }),
       });
