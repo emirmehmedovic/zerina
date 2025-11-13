@@ -100,6 +100,17 @@ export default function VendorOnboardingPage() {
     };
   }, [refreshIndex]);
 
+  // Auto-refresh every 10 seconds when application is pending
+  useEffect(() => {
+    if (!status?.application || status.application.status !== "PENDING") {
+      return;
+    }
+    const interval = setInterval(() => {
+      setRefreshIndex((i) => i + 1);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [status?.application?.status]);
+
   const isAccountComplete = status?.user
     ? status.user.emailVerified && (!status.user.phoneRequired || status.user.phoneVerified)
     : false;
@@ -147,6 +158,36 @@ export default function VendorOnboardingPage() {
     );
   }
 
+  if (isApproved) {
+    return (
+      <div className="space-y-6">
+        <section className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-6 md:p-8 text-emerald-50 shadow-lg shadow-emerald-500/10">
+          <div className="flex items-start gap-4">
+            <CheckCircle2 className="h-8 w-8 flex-shrink-0 text-emerald-400" />
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight">You're all set!</h1>
+              <p className="text-sm text-emerald-100">
+                Your vendor application has been approved. Your shop is ready to go live, and you can start selling immediately.
+              </p>
+              <p className="text-sm text-emerald-100 font-medium">
+                We wish you great success with your shop! If you have any questions, visit our support center or contact us.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr,1fr]">
+          <div className="space-y-6">
+            <StatusTracker status={status!} />
+          </div>
+          <div className="space-y-6">
+            <NextStepsCard status={status!} onRefresh={refresh} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-white/10 bg-black/30 p-6 md:p-8 text-zinc-100 shadow-lg shadow-blue-500/5">
@@ -156,10 +197,10 @@ export default function VendorOnboardingPage() {
         </div>
         <div className="mt-4 space-y-3">
           <h1 className="text-3xl font-semibold tracking-tight text-white">
-            Let’s get your shop ready to sell
+            Let's get your shop ready to sell
           </h1>
           <p className="max-w-3xl text-sm text-zinc-300">
-            Complete the steps below to finish your onboarding. We’ll guide you through verification, application submission, and the approval process so you can access every part of the dashboard.
+            Complete the steps below to finish your onboarding. We'll guide you through verification, application submission, and the approval process so you can access every part of the dashboard.
           </p>
         </div>
       </section>
