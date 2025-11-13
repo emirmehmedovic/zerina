@@ -111,7 +111,7 @@ export default function VendorApplicationsAdminPage() {
     if (!query.trim()) return items;
     const q = query.trim().toLowerCase();
     return items.filter((item) => {
-      const email = item.user.email?.toLowerCase() ?? "";
+      const email = item.user?.email?.toLowerCase() ?? "";
       const legal = item.legalName.toLowerCase();
       return legal.includes(q) || email.includes(q);
     });
@@ -240,8 +240,8 @@ export default function VendorApplicationsAdminPage() {
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
-                      <span className="inline-flex items-center gap-2"><User className="h-4 w-4 text-zinc-500" />{item.user.name ?? "Unknown"}</span>
-                      <span className="inline-flex items-center gap-2"><Mail className="h-4 w-4 text-zinc-500" />{item.user.email ?? "No email"}</span>
+                      <span className="inline-flex items-center gap-2"><User className="h-4 w-4 text-zinc-500" />{item.user?.name ?? "Unknown"}</span>
+                      <span className="inline-flex items-center gap-2"><Mail className="h-4 w-4 text-zinc-500" />{item.user?.email ?? "No email"}</span>
                       <span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4 text-zinc-500" />{item.country}</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">

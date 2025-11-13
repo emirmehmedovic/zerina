@@ -52,15 +52,25 @@ if (redisConnection && emailQueue) {
 
 export async function enqueueEmail(job: SendEmailJob) {
   if (!emailQueue) {
-    await transporter.sendMail({
-      from: ENV.smtpFrom,
-      to: job.to,
-      subject: job.subject,
-      html: job.html,
-      text: job.text,
-    });
+    try {
+      await transporter.sendMail({
+        from: ENV.smtpFrom,
+        to: job.to,
+        subject: job.subject,
+        html: job.html,
+        text: job.text,
+      });
+    } catch (error) {
+      console.error('[email] failed to send email', error);
+      // Don't throw - email failures shouldn't block operations in dev
+    }
     return;
   }
 
-  await emailQueue.add('send', job);
+  try {
+    await emailQueue.add('send', job);
+  } catch (error) {
+    console.error('[email] failed to queue email', error);
+    // Don't throw - email failures shouldn't block operations
+  }
 }
