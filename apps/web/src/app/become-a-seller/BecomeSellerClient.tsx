@@ -118,13 +118,43 @@ export default function BecomeSellerClient() {
     if (!recaptchaSiteKey || typeof window === "undefined") {
       return null;
     }
-    const enterprise = window.grecaptcha?.enterprise;
-    if (!enterprise?.execute) {
+
+    const waitForEnterprise = async () => {
+      if (window.grecaptcha?.enterprise?.execute) {
+        return window.grecaptcha.enterprise;
+      }
+
+      return new Promise<GrecaptchaEnterprise | null>((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 25; // ~5 seconds
+        const interval = setInterval(() => {
+          const enterprise = window.grecaptcha?.enterprise;
+          if (enterprise?.execute) {
+            clearInterval(interval);
+            resolve(enterprise);
+            return;
+          }
+          attempts += 1;
+          if (attempts >= maxAttempts) {
+            clearInterval(interval);
+            resolve(null);
+          }
+        }, 200);
+      });
+    };
+
+    const enterprise = await waitForEnterprise();
+    if (!enterprise) {
+      console.error("[recaptcha] enterprise loader missing. Token unavailable.");
       return null;
     }
-    await new Promise<void>((resolve) => {
-      enterprise.ready(resolve);
-    });
+
+    if (typeof enterprise.ready === "function") {
+      await new Promise<void>((resolve) => {
+        enterprise.ready(resolve);
+      });
+    }
+
     try {
       const token = await enterprise.execute(recaptchaSiteKey, { action });
       return token;

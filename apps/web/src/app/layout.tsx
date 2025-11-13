@@ -1,4 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import CartProvider from "@/components/CartProvider";
 import { ToastProvider } from "../components/ToastProvider";
@@ -26,17 +27,17 @@ const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className="force-light">
-      <head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-light-background text-light-text`}>
         {recaptchaSiteKey ? (
-          <script
+          <Script
+            id="recaptcha-enterprise"
             src={`https://www.google.com/recaptcha/enterprise.js?render=${recaptchaSiteKey}`}
-            async
-            defer
-            crossOrigin="anonymous"
+            strategy="afterInteractive"
+            onError={(err) => {
+              console.error("Failed to load reCAPTCHA", err);
+            }}
           />
         ) : null}
-      </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-light-background text-light-text`}>
         <CartProvider>
           <ToastProvider>
             <div>
