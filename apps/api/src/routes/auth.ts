@@ -10,6 +10,7 @@ import { COOKIE_NAME } from '../middleware/auth';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { issueCsrfToken } from '../middleware/csrf';
 import { enqueueEmail } from '../lib/email';
+import { renderEmailVerificationEmail } from '../emails/templates';
 
 const router = Router();
 
@@ -27,6 +28,10 @@ const phoneCooldownMs = 2 * 60 * 1000;
 
 function generatePhoneCode() {
   return crypto.randomInt(100_000, 1_000_000).toString();
+}
+
+function generateEmailVerificationToken() {
+  return crypto.randomBytes(32).toString('hex');
 }
 
 const phoneRateLimit = rateLimit({
@@ -125,6 +130,30 @@ router.post('/register', async (req, res) => {
 
   const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
   const user = await prisma.user.create({ data: { email, passwordHash, name, role: 'BUYER' } });
+
+  // Create email verification token
+  const verificationToken = generateEmailVerificationToken();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  await prisma.emailVerificationToken.create({
+    data: {
+      userId: user.id,
+      token: verificationToken,
+      expiresAt,
+    },
+  });
+
+  // Send verification email
+  const verificationLink = `${ENV.frontendUrl}/api/v1/auth/email/verify?token=${verificationToken}`;
+  const emailData = renderEmailVerificationEmail({
+    userName: user.name,
+    verificationLink,
+  });
+  await enqueueEmail({
+    to: user.email,
+    subject: emailData.subject,
+    html: emailData.html,
+    text: emailData.text,
+  });
 
   const token = signSession({ id: user.id, role: user.role });
   res.cookie(COOKIE_NAME, token, cookieOptions);
@@ -237,6 +266,44 @@ router.post('/phone/verify', requireAuth, async (req, res) => {
   ]);
 
   return res.json({ ok: true });
+});
+
+// GET /api/v1/auth/email/verify?token=<token>
+router.get('/email/verify', async (req, res) => {
+  const { token } = req.query;
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'invalid_token' });
+  }
+
+  // Find the verification token
+  const verificationToken = await prisma.emailVerificationToken.findUnique({
+    where: { token },
+    include: { user: true },
+  });
+
+  if (!verificationToken) {
+    return res.status(404).json({ error: 'token_not_found' });
+  }
+
+  // Check if token has expired
+  if (new Date() > verificationToken.expiresAt) {
+    await prisma.emailVerificationToken.delete({ where: { id: verificationToken.id } });
+    return res.status(401).json({ error: 'token_expired' });
+  }
+
+  // Mark email as verified and delete the token
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: verificationToken.userId },
+      data: { emailVerifiedAt: new Date() },
+    }),
+    prisma.emailVerificationToken.delete({
+      where: { id: verificationToken.id },
+    }),
+  ]);
+
+  // Redirect to dashboard or show success page
+  return res.redirect(`${ENV.frontendUrl}/dashboard?emailVerified=true`);
 });
 
 router.post('/email/resend-verification', requireAuth, async (req, res) => {

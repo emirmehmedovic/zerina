@@ -2,6 +2,8 @@ export { renderOrderConfirmedEmail } from './orderConfirmed';
 export type { OrderConfirmedEmailProps } from './orderConfirmed';
 export { renderOrderShippedEmail } from './orderShipped';
 export type { OrderShippedEmailProps } from './orderShipped';
+export { renderEmailVerificationEmail } from './emailVerification';
+export type { EmailVerificationEmailProps } from './emailVerification';
 export { renderVendorApplicationApprovedEmail } from './vendorApplicationApproved';
 export type { VendorApplicationApprovedEmailProps } from './vendorApplicationApproved';
 export { renderVendorApplicationRejectedEmail } from './vendorApplicationRejected';

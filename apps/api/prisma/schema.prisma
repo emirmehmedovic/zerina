@@ -189,6 +189,19 @@ enum SecurityDepositStatus {
   WAIVED
 }
 
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
 model PhoneVerificationToken {
   id        String   @id @default(cuid())
   userId    String
@@ -251,6 +264,7 @@ model User {
   phoneNumber     String?
   phoneVerifiedAt DateTime?
 
+  emailVerificationTokens EmailVerificationToken[]
   phoneVerificationTokens PhoneVerificationToken[]
 
   shop          Shop?
