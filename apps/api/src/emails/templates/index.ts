@@ -4,6 +4,8 @@ export { renderOrderShippedEmail } from './orderShipped';
 export type { OrderShippedEmailProps } from './orderShipped';
 export { renderEmailVerificationEmail } from './emailVerification';
 export type { EmailVerificationEmailProps } from './emailVerification';
+export { renderShopCreatedEmail } from './shopCreated';
+export type { ShopCreatedEmailProps } from './shopCreated';
 export { renderVendorApplicationApprovedEmail } from './vendorApplicationApproved';
 export type { VendorApplicationApprovedEmailProps } from './vendorApplicationApproved';
 export { renderVendorApplicationRejectedEmail } from './vendorApplicationRejected';

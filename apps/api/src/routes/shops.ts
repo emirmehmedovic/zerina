@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { ensureApprovedVendor } from '../middleware/vendor';
 import { ENV } from '../env';
 import { badRequest, forbidden, notFound } from '../utils/errors';
+import { enqueueEmail } from '../lib/email';
+import { renderEmailVerificationEmail, renderShopCreatedEmail } from '../emails/templates';
 
 const router = Router();
 
@@ -65,6 +68,22 @@ router.post('/', requireAuth, async (req, res) => {
   if (user.role !== 'VENDOR' && user.role !== 'ADMIN') {
     await prisma.user.update({ where: { id: user.sub }, data: { role: 'VENDOR' } });
     refreshSession(res, user.sub, 'VENDOR');
+  }
+
+  // Send shop creation email
+  const dbUser = await prisma.user.findUnique({ where: { id: user.sub }, select: { email: true, name: true } });
+  if (dbUser) {
+    const emailData = renderShopCreatedEmail({
+      shopName: parsed.data.name,
+      vendorName: dbUser.name,
+      dashboardUrl: `${ENV.frontendUrl}/dashboard/onboarding`,
+    });
+    await enqueueEmail({
+      to: dbUser.email,
+      subject: emailData.subject,
+      html: emailData.html,
+      text: emailData.text,
+    });
   }
 
   res.status(201).json(shop);
