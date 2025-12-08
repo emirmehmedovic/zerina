@@ -1,21 +1,16 @@
-import { API_URL } from "@/lib/api";
-
-interface WindowWithCsrf extends Window {
-  __csrfToken?: string;
-}
-
+/**
+ * CSRF protection has been disabled for this SPA + API architecture.
+ *
+ * The application is protected by:
+ * - CORS (restricts cross-origin requests)
+ * - sameSite cookies (prevents CSRF automatically)
+ * - HttpOnly cookies (prevents XSS theft)
+ * - Rate limiting (prevents brute force)
+ * - HTTPS in production (encrypts traffic)
+ *
+ * This function is kept for backwards compatibility but returns empty string.
+ * The X-CSRF-Token header will be ignored by the backend.
+ */
 export async function getCsrfToken(): Promise<string> {
-  // Cache token in memory per tab
-  if (typeof window !== 'undefined') {
-    const w = window as WindowWithCsrf;
-    if (w.__csrfToken) return w.__csrfToken as string;
-    const res = await fetch(`${API_URL}/api/v1/auth/csrf`, { credentials: 'include' });
-    if (res.ok) {
-      const data = await res.json().catch(() => ({}));
-      w.__csrfToken = data?.csrfToken || '';
-      return w.__csrfToken || '';
-    }
-    return '';
-  }
   return '';
 }

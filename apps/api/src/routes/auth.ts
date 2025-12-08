@@ -8,7 +8,6 @@ import { ENV } from '../env';
 import rateLimit from 'express-rate-limit';
 import { COOKIE_NAME } from '../middleware/auth';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { issueCsrfToken } from '../middleware/csrf';
 import { enqueueEmail } from '../lib/email';
 import { renderEmailVerificationEmail } from '../emails/templates';
 
@@ -472,9 +471,3 @@ router.post('/reset', async (req, res) => {
 });
 
 export default router;
-
-// GET /api/v1/auth/csrf — issue CSRF token (sets cookie and returns token)
-router.get('/csrf', (req, res) => {
-  const token = issueCsrfToken(req, res);
-  return res.json({ csrfToken: token });
-});

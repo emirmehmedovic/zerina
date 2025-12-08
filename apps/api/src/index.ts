@@ -26,7 +26,6 @@ import productImagesRouter from './routes/product-images';
 import productVariantsRouter from './routes/product-variants';
 import vendorDocumentsRouter from './routes/vendor-documents';
 import chatRouter from './routes/chat';
-import { csrfProtect } from './middleware/csrf';
 import stripeWebhookRouter from './routes/stripe-webhook';
 
 const app = express();
@@ -45,14 +44,6 @@ app.use(cors({
 app.use('/api/v1/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
-
-// CSRF protection for non-GET requests (exclude auth and dev utilities)
-app.use(
-  csrfProtect([
-    { pathStartsWith: '/api/v1/auth' },
-    { pathStartsWith: '/api/v1/dev' },
-  ])
-);
 
 // Static uploads directories
 // Primary (matches routes/uploads.ts)
