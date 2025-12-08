@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
         port: '4000',
         pathname: '/uploads/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'handmadelovefilled.com',
+        pathname: '/uploads/**',
+      },
     ],
   },
   async rewrites() {
