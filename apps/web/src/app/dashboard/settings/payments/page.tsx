@@ -114,7 +114,7 @@ export default function PaymentsSettingsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Payments &amp; Stripe Connect</h1>
           <p className="text-zinc-400 text-sm mt-1">
-            Connect your Stripe Express account to receive payouts from marketplace orders.
+            Connect your Stripe account via OAuth to receive payouts from marketplace orders.
           </p>
         </div>
         <button
@@ -153,7 +153,7 @@ export default function PaymentsSettingsPage() {
                 {connected ? (
                   <>
                     <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                    Connected to Stripe Express
+                    Connected to Stripe
                   </>
                 ) : (
                   <>
@@ -203,7 +203,7 @@ export default function PaymentsSettingsPage() {
           <div>
             <h3 className="text-sm font-semibold text-white uppercase tracking-wide">Actions</h3>
             <p className="text-xs text-zinc-400 mt-1">
-              Use these actions to connect or manage your Stripe Express account.
+              Use these actions to connect or manage your Stripe account.
             </p>
           </div>
 

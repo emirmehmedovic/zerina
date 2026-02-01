@@ -197,57 +197,127 @@ router.post('/stripe/connect', requireAuth, ensureApprovedVendor, async (req, re
       return res.status(403).json({ error: 'shop_not_active', status: shop.status });
     }
 
-    const owner = await prisma.user.findUnique({
-      where: { id: shop.ownerId },
-      select: { email: true, name: true },
-    });
-
-    let accountId = shop.stripeAccountId ?? null;
-
-    if (!accountId) {
-      const account = await stripe.accounts.create({
-        type: 'express',
-        email: owner?.email ?? user.email,
-        business_profile: {
-          name: shop.name || undefined,
-          product_description: 'Marketplace vendor',
-          support_email: owner?.email ?? user.email,
-          url: ENV.frontendUrl,
-        },
-        capabilities: {
-          transfers: { requested: true },
-          card_payments: { requested: true },
-        },
-      });
-
-      const updateData = {
-        stripeAccountId: account.id,
-        stripeOnboardedAt: account.details_submitted ? new Date() : null,
-        stripeDetailsSubmitted: Boolean(account.details_submitted),
-        stripeChargesEnabled: Boolean(account.charges_enabled),
-        stripePayoutsEnabled: Boolean(account.payouts_enabled),
-        stripeDefaultCurrency: account.default_currency ?? null,
-      };
-
-      await prisma.shop.update({
-        where: { id: shop.id },
-        data: updateData as any,
-      });
-
-      accountId = account.id;
+    if (!ENV.stripeClientId) {
+      return res.status(500).json({ error: 'stripe_oauth_not_configured' });
     }
 
-    const accountLink = await stripe.accountLinks.create({
-      account: accountId!,
-      refresh_url: `${ENV.frontendUrl}/dashboard/settings/payments?refresh=true`,
-      return_url: `${ENV.frontendUrl}/dashboard/settings/payments?connected=true`,
-      type: 'account_onboarding',
-    });
+    // Generate state token for CSRF protection (signed JWT)
+    const state = jwt.sign(
+      { userId: user.sub, shopId: shop.id, timestamp: Date.now() },
+      ENV.sessionSecret,
+      { expiresIn: '15m' }
+    );
 
-    return res.json({ url: accountLink.url });
+    // Generate Stripe OAuth authorization URL
+    const authUrl = stripe.oauth.authorizeUrl({
+      client_id: ENV.stripeClientId,
+      redirect_uri: ENV.stripeRedirectUri,
+      state,
+      scope: 'read_write',
+      // Suggested account info to pre-fill (optional)
+      'stripe_user[email]': user.email,
+      'stripe_user[business_name]': shop.name || undefined,
+    } as any);
+
+    return res.json({ url: authUrl });
   } catch (error) {
     console.error('[vendor] stripe connect error', error);
     return res.status(500).json({ error: 'stripe_connect_failed' });
+  }
+});
+
+router.post('/stripe/oauth/callback', requireAuth, ensureApprovedVendor, async (req, res) => {
+  const user = (req as any).user as { sub: string };
+
+  try {
+    const { code, state } = req.body;
+
+    if (!code || !state) {
+      return res.status(400).json({ error: 'missing_code_or_state' });
+    }
+
+    // Verify state token (CSRF protection)
+    let stateData: { userId: string; shopId: string; timestamp: number };
+    try {
+      stateData = jwt.verify(state, ENV.sessionSecret) as any;
+    } catch (err) {
+      return res.status(400).json({ error: 'invalid_state_token' });
+    }
+
+    // Verify state matches current user
+    if (stateData.userId !== user.sub) {
+      return res.status(403).json({ error: 'state_user_mismatch' });
+    }
+
+    const shop = await prisma.shop.findUnique({
+      where: { ownerId: user.sub },
+    });
+
+    if (!shop) {
+      return res.status(404).json({ error: 'shop_not_found' });
+    }
+
+    if (shop.id !== stateData.shopId) {
+      return res.status(403).json({ error: 'state_shop_mismatch' });
+    }
+
+    if (shop.status !== 'ACTIVE') {
+      return res.status(403).json({ error: 'shop_not_active', status: shop.status });
+    }
+
+    // Exchange authorization code for access token
+    const response = await stripe.oauth.token({
+      grant_type: 'authorization_code',
+      code,
+    });
+
+    const stripeUserId = response.stripe_user_id;
+    if (!stripeUserId) {
+      return res.status(500).json({ error: 'no_stripe_user_id' });
+    }
+
+    // Retrieve account details to get status
+    const account = await stripe.accounts.retrieve(stripeUserId);
+
+    // Update shop with connected account ID and status
+    const updateData: any = {
+      stripeAccountId: stripeUserId,
+      stripeDetailsSubmitted: Boolean(account.details_submitted),
+      stripeChargesEnabled: Boolean(account.charges_enabled),
+      stripePayoutsEnabled: Boolean(account.payouts_enabled),
+      stripeDefaultCurrency: account.default_currency ?? null,
+    };
+
+    // Set onboarded timestamp if fully connected
+    if (account.details_submitted && account.charges_enabled && !shop.stripeOnboardedAt) {
+      updateData.stripeOnboardedAt = new Date();
+    }
+
+    await prisma.shop.update({
+      where: { id: shop.id },
+      data: updateData,
+    });
+
+    return res.json({
+      success: true,
+      connected: Boolean(account.details_submitted && account.charges_enabled),
+      account: {
+        id: stripeUserId,
+        charges_enabled: account.charges_enabled,
+        payouts_enabled: account.payouts_enabled,
+        details_submitted: account.details_submitted,
+        default_currency: account.default_currency,
+      },
+    });
+  } catch (error: any) {
+    console.error('[vendor] stripe oauth callback error', error);
+
+    // Handle specific Stripe OAuth errors
+    if (error.type === 'StripeInvalidGrantError') {
+      return res.status(400).json({ error: 'invalid_authorization_code' });
+    }
+
+    return res.status(500).json({ error: 'oauth_callback_failed', details: error.message });
   }
 });
 
@@ -316,9 +386,11 @@ router.post('/stripe/dashboard-link', requireAuth, ensureApprovedVendor, async (
       return res.status(404).json({ error: 'account_not_connected' });
     }
 
-    const loginLink = await stripe.accounts.createLoginLink(accountId);
+    // Standard Connect accounts use their own Stripe dashboard
+    // No API call needed - just return the standard dashboard URL
+    const dashboardUrl = 'https://dashboard.stripe.com/';
 
-    return res.json({ url: loginLink.url });
+    return res.json({ url: dashboardUrl });
   } catch (error) {
     console.error('[vendor] stripe dashboard link error', error);
     return res.status(500).json({ error: 'stripe_dashboard_link_failed' });

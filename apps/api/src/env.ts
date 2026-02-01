@@ -29,6 +29,8 @@ export const ENV = {
   stripeSecretKey: required('STRIPE_SECRET_KEY'),
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   stripePlatformFeePercent: Number(process.env.STRIPE_PLATFORM_FEE_PERCENT ?? '0'),
+  stripeClientId: process.env.STRIPE_CLIENT_ID,
+  stripeRedirectUri: process.env.STRIPE_REDIRECT_URI ?? 'http://localhost:3000/stripe/callback',
   backendUrl: process.env.BACKEND_URL ?? 'http://localhost:4000',
   smtpHost: required('SMTP_HOST'),
   smtpPort: Number(process.env.SMTP_PORT ?? '587'),
