@@ -53,12 +53,13 @@ export default function Navbar() {
             <div className="flex items-center gap-2 md:gap-3">
               <Link href="/" className="flex items-center shrink-0">
                 <Image
-                  src="/logo-200.png"
+                  src="/HANDMADE-LOGO-bezpozadine.png"
                   alt="Handmade Love Filled - UAE Handmade Marketplace"
-                  width={80}
-                  height={80}
+                  width={60}
+                  height={60}
                   priority
                   className="object-contain"
+                  style={{ background: 'transparent' }}
                 />
               </Link>
               <div className="hidden md:flex items-center gap-1.5">
