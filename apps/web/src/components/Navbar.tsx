@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { ShoppingCart } from 'lucide-react';
 import LiquidGlass from './ui/LiquidGlass';
@@ -50,8 +51,15 @@ export default function Navbar() {
           <nav className="w-full px-4 md:px-6 py-2 flex items-center justify-between gap-2 md:gap-3 text-amber-900">
             {/* Left: Logo + Links */}
             <div className="flex items-center gap-2 md:gap-3">
-              <Link href="/" className="text-xl font-semibold text-amber-900 shrink-0">
-                Zerina
+              <Link href="/" className="flex items-center shrink-0">
+                <Image
+                  src="/logo-200.png"
+                  alt="Handmade Love Filled - UAE Handmade Marketplace"
+                  width={40}
+                  height={40}
+                  priority
+                  className="object-contain"
+                />
               </Link>
               <div className="hidden md:flex items-center gap-1.5">
                 {links.map((l) => {

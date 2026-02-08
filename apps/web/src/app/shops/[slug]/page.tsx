@@ -1,4 +1,5 @@
 import { API_URL } from "@/lib/api";
+import { Metadata } from 'next';
 import Image from "next/image";
 import ProductCard from "@/components/ProductCard";
 type Shop = {
@@ -12,6 +13,50 @@ type Shop = {
   story?: string | null;
   products: Array<{ id: string; title: string; slug: string; priceCents: number; currency: string; images?: { storageKey: string }[] }>;
 };
+
+// Helper to build asset URL (needed for metadata)
+const buildAssetUrl = (key?: string | null): string | null => {
+  if (!key) return null;
+  if (key.startsWith('http')) return key;
+  if (key.startsWith('/uploads/')) return `${API_URL}${key}`;
+  if (key.startsWith('uploads/')) return `${API_URL}/${key}`;
+  return `${API_URL}/uploads/${key}`;
+};
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  let shop: Shop | null = null;
+
+  try {
+    const res = await fetch(`${API_URL}/api/v1/shops/${params.slug}`, { cache: 'no-store' });
+    if (res.ok) shop = await res.json();
+  } catch {}
+
+  if (!shop) {
+    return { title: 'Shop Not Found' };
+  }
+
+  const coverUrl = shop.coverUrl || buildAssetUrl(shop.coverImageStorageKey) || null;
+
+  return {
+    title: `${shop.name} - Artisan Shop`,
+    description: shop.description?.slice(0, 160) || shop.story?.slice(0, 160) || `Discover handmade products from ${shop.name}, a UAE-based artisan creating unique handcrafted items.`,
+    keywords: [
+      'handmade',
+      'UAE',
+      'Dubai',
+      shop.name,
+      'artisan',
+      'shop',
+    ],
+    openGraph: {
+      title: `${shop.name} | Handmade Love Filled`,
+      description: shop.description || shop.story || '',
+      url: `https://handmadelovefilled.com/shops/${params.slug}`,
+      images: coverUrl ? [{ url: coverUrl }] : [],
+      type: 'profile',
+    },
+  };
+}
 
 export default async function ShopPage({ params }: { params: { slug: string } }) {
   const { slug } = params;
@@ -33,20 +78,44 @@ export default async function ShopPage({ params }: { params: { slug: string } })
   }
 
   // Resolve asset URL for possible cover images from API
-  const buildAssetUrl = (key?: string | null): string | null => {
-    if (!key) return null;
-    if (key.startsWith('http')) return key;
-    if (key.startsWith('/uploads/')) return `${API_URL}${key}`;
-    if (key.startsWith('uploads/')) return `${API_URL}/${key}`;
-    return `${API_URL}/uploads/${key}`;
-  };
   const coverUrl = shop.coverUrl
     || buildAssetUrl(shop.coverImageStorageKey)
     || buildAssetUrl(shop.products?.[0]?.images?.[0]?.storageKey)
     || null;
 
   return (
-    <main className="min-h-screen p-6 sm:p-10">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'LocalBusiness',
+            name: shop.name,
+            description: shop.description || shop.story,
+            url: `https://handmadelovefilled.com/shops/${slug}`,
+            address: {
+              '@type': 'PostalAddress',
+              addressCountry: 'AE',
+            },
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://handmadelovefilled.com' },
+              { '@type': 'ListItem', position: 2, name: 'Artisans', item: 'https://handmadelovefilled.com/shops' },
+              { '@type': 'ListItem', position: 3, name: shop.name, item: `https://handmadelovefilled.com/shops/${slug}` },
+            ],
+          }),
+        }}
+      />
+      <main className="min-h-screen p-6 sm:p-10">
       <div className="relative w-full px-4 sm:px-6 lg:px-8">
         {/* Cute Artisanal Hero - Two Columns */}
         <section className="mb-10 relative rounded-[28px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-rose-100/60 bg-gradient-to-br from-rose-50 via-amber-50 to-white">
@@ -146,6 +215,7 @@ export default async function ShopPage({ params }: { params: { slug: string } })
           </section>
         )}
       </div>
-    </main>
+      </main>
+    </>
   );
 }

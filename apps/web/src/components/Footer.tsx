@@ -11,7 +11,7 @@ export default function Footer() {
               {/* Brand Section */}
               <div className="md:col-span-1">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/70 border border-rose-100/70 text-amber-900 text-xs font-semibold mb-3">Handcrafted marketplace</div>
-                <Link href="/" className="text-2xl font-bold text-amber-900 mb-2 block">Zerina</Link>
+                <Link href="/" className="text-2xl font-bold text-amber-900 mb-2 block">Handmade Love Filled</Link>
                 <p className="text-amber-800/90 text-sm leading-relaxed max-w-xs">
                   Discover thoughtfully curated, handcrafted products from independent makers.
                 </p>
@@ -67,7 +67,7 @@ export default function Footer() {
           {/* Bottom Section */}
           <div className="border-t border-white/10 mt-6 pt-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <p className="text-amber-700 text-sm">© {new Date().getFullYear()} Zerina. All rights reserved.</p>
+              <p className="text-amber-700 text-sm">© {new Date().getFullYear()} Handmade Love Filled. All rights reserved.</p>
               <div className="flex items-center gap-4">
                 <Link href="/github" className="text-amber-700 hover:text-amber-900 transition-colors inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/70 border border-gray-200" aria-label="GitHub">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

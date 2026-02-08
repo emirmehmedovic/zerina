@@ -1,8 +1,41 @@
 import { API_URL } from "@/lib/api";
+import { Metadata } from 'next';
 import CategoriesClient from "./CategoriesClient";
 import { redirect } from "next/navigation";
 type Product = { id: string; title: string; slug: string; priceCents: number; currency: string; images?: { storageKey: string }[] };
 type Category = { id: string; name: string; slug: string };
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  let categoryName = params.slug;
+
+  try {
+    const res = await fetch(`${API_URL}/api/v1/categories/${params.slug}/products?take=1`, {
+      cache: 'no-store'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      categoryName = data.category?.name || params.slug;
+    }
+  } catch {}
+
+  return {
+    title: `${categoryName} - Handmade Products`,
+    description: `Explore handmade ${categoryName.toLowerCase()} from UAE artisans. Unique, handcrafted products made with love in Dubai, Abu Dhabi, and Sharjah.`,
+    keywords: [
+      'handmade',
+      categoryName,
+      'UAE',
+      'Dubai',
+      'artisan',
+      'crafts',
+    ],
+    openGraph: {
+      title: `${categoryName} | Handmade Love Filled`,
+      description: `Explore handmade ${categoryName.toLowerCase()} from UAE artisans.`,
+      url: `https://handmadelovefilled.com/categories/${params.slug}`,
+    },
+  };
+}
 
 export default async function CategoryDetailPage({ params, searchParams }: { params: { slug: string }, searchParams?: { take?: string; skip?: string } }) {
   const { slug } = params;
@@ -42,9 +75,24 @@ export default async function CategoryDetailPage({ params, searchParams }: { par
   };
 
   return (
-    <main className="min-h-screen p-6 sm:p-10">
-      <div className="relative w-full px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold mb-4">Category: {data.category?.name ?? slug}</h1>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://handmadelovefilled.com' },
+              { '@type': 'ListItem', position: 2, name: 'Categories', item: 'https://handmadelovefilled.com/categories' },
+              { '@type': 'ListItem', position: 3, name: title, item: `https://handmadelovefilled.com/categories/${slug}` },
+            ],
+          }),
+        }}
+      />
+      <main className="min-h-screen p-6 sm:p-10">
+        <div className="relative w-full px-4 sm:px-6 lg:px-8">
+          <h1 className="text-3xl font-bold mb-4">Category: {data.category?.name ?? slug}</h1>
         {categories.length > 0 && (
           <div className="card-base card-glass p-3 mb-6">
             <div className="text-sm text-light-muted dark:text-dark-muted mb-2">Browse categories</div>
@@ -66,6 +114,7 @@ export default async function CategoryDetailPage({ params, searchParams }: { par
           />
         )}
       </div>
-    </main>
+      </main>
+    </>
   );
 }

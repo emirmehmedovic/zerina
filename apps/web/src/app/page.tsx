@@ -1,4 +1,5 @@
 import { API_URL } from "@/lib/api";
+import { Metadata } from 'next';
 import FeaturedCategories from "@/components/FeaturedCategories";
 import HeroSection from "@/components/HeroSection";
 import ProductCard from "@/components/ProductCard";
@@ -10,6 +11,33 @@ import TrendingProductsSection from "@/components/TrendingProductsSection";
 import FeaturedProductsSection from '@/components/FeaturedProductsSection';
 import { ArrowRight } from "lucide-react";
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Home',
+  description: 'Discover handmade jewelry, crafts, and artisan products from UAE local makers in Dubai, Abu Dhabi, and Sharjah. Shop unique handcrafted gifts made with love by talented artisans.',
+  openGraph: {
+    title: 'Handmade Love Filled - Shop Authentic UAE Handmade Products',
+    description: 'Discover handmade jewelry, crafts, and artisan products from UAE local makers. Support small businesses with unique handcrafted gifts.',
+    url: 'https://handmadelovefilled.com',
+    images: ['/logo-400.png'],
+  },
+};
+
+function generateOrganizationSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Handmade Love Filled',
+    description: 'UAE Handmade Marketplace connecting artisans with customers',
+    url: 'https://handmadelovefilled.com',
+    logo: 'https://handmadelovefilled.com/logo-400.png',
+    address: {
+      '@type': 'PostalAddress',
+      addressCountry: 'AE',
+      addressRegion: 'Dubai',
+    },
+  };
+}
 
 type Product = {
   id: string;
@@ -75,7 +103,14 @@ export default async function Home() {
   } catch {}
 
   return (
-    <main className="min-h-screen p-6 sm:p-10">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(generateOrganizationSchema()),
+        }}
+      />
+      <main className="min-h-screen p-6 sm:p-10">
       <HeroSection 
         categories={categories} 
         latestProducts={latestProducts}
@@ -102,7 +137,8 @@ export default async function Home() {
       {/* CTA */}
       <CTASection />
 
-      
-    </main>
+
+      </main>
+    </>
   );
 }
