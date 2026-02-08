@@ -55,8 +55,8 @@ export default function Navbar() {
                 <Image
                   src="/logo-200.png"
                   alt="Handmade Love Filled - UAE Handmade Marketplace"
-                  width={40}
-                  height={40}
+                  width={80}
+                  height={80}
                   priority
                   className="object-contain"
                 />
