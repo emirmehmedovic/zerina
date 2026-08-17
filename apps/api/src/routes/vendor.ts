@@ -232,6 +232,83 @@ router.post('/stripe/connect', requireAuth, ensureApprovedVendor, async (req, re
   }
 });
 
+// GET handler for Stripe OAuth redirect (browser redirect from Stripe)
+router.get('/stripe/callback', async (req, res) => {
+  try {
+    const { code, state, error, error_description } = req.query as {
+      code?: string;
+      state?: string;
+      error?: string;
+      error_description?: string;
+    };
+
+    // Handle Stripe errors (user denied access, etc.)
+    if (error) {
+      console.error('[vendor] stripe oauth denied:', error, error_description);
+      return res.redirect(`${ENV.frontendUrl}/dashboard/settings/payments?error=${encodeURIComponent(error)}`);
+    }
+
+    if (!code || !state) {
+      return res.redirect(`${ENV.frontendUrl}/dashboard/settings/payments?error=missing_code_or_state`);
+    }
+
+    // Verify state token (CSRF protection)
+    let stateData: { userId: string; shopId: string; timestamp: number };
+    try {
+      stateData = jwt.verify(state, ENV.sessionSecret) as any;
+    } catch (err) {
+      return res.redirect(`${ENV.frontendUrl}/dashboard/settings/payments?error=invalid_state`);
+    }
+
+    const shop = await prisma.shop.findUnique({
+      where: { id: stateData.shopId },
+    });
+
+    if (!shop || shop.ownerId !== stateData.userId) {
+      return res.redirect(`${ENV.frontendUrl}/dashboard/settings/payments?error=shop_mismatch`);
+    }
+
+    // Exchange authorization code for access token
+    const response = await stripe.oauth.token({
+      grant_type: 'authorization_code',
+      code,
+    });
+
+    const stripeUserId = response.stripe_user_id;
+    if (!stripeUserId) {
+      return res.redirect(`${ENV.frontendUrl}/dashboard/settings/payments?error=no_stripe_user_id`);
+    }
+
+    // Retrieve account details to get status
+    const account = await stripe.accounts.retrieve(stripeUserId);
+
+    // Update shop with connected account ID and status
+    const updateData: any = {
+      stripeAccountId: stripeUserId,
+      stripeDetailsSubmitted: Boolean(account.details_submitted),
+      stripeChargesEnabled: Boolean(account.charges_enabled),
+      stripePayoutsEnabled: Boolean(account.payouts_enabled),
+      stripeDefaultCurrency: account.default_currency ?? null,
+    };
+
+    // Set onboarded timestamp if fully connected
+    if (account.details_submitted && account.charges_enabled && !shop.stripeOnboardedAt) {
+      updateData.stripeOnboardedAt = new Date();
+    }
+
+    await prisma.shop.update({
+      where: { id: shop.id },
+      data: updateData,
+    });
+
+    // Redirect to frontend with success
+    return res.redirect(`${ENV.frontendUrl}/dashboard/settings/payments?success=true`);
+  } catch (error: any) {
+    console.error('[vendor] stripe oauth callback error', error);
+    return res.redirect(`${ENV.frontendUrl}/dashboard/settings/payments?error=callback_failed`);
+  }
+});
+
 router.post('/stripe/oauth/callback', requireAuth, ensureApprovedVendor, async (req, res) => {
   const user = (req as any).user as { sub: string };
 
