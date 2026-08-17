@@ -34,7 +34,7 @@ export default function Footer() {
                 <ul className="space-y-2">
                   <li><Link href="/dashboard/shop" className="text-amber-800 hover:text-amber-900 hover:underline underline-offset-4 transition-colors text-sm">Start Selling</Link></li>
                   <li><Link href="/seller-guide" className="text-amber-800 hover:text-amber-900 hover:underline underline-offset-4 transition-colors text-sm">Seller Guide</Link></li>
-                  <li><Link href="/support" className="text-amber-800 hover:text-amber-900 hover:underline underline-offset-4 transition-colors text-sm">Support</Link></li>
+                  <li><Link href="/contact" className="text-amber-800 hover:text-amber-900 hover:underline underline-offset-4 transition-colors text-sm">Support</Link></li>
                 </ul>
               </div>
 

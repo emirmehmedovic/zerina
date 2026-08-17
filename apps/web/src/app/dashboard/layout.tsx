@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { API_URL } from "@/lib/api";
-import { LayoutDashboard, BarChart2, Package, ShoppingBag, ClipboardList, MapPin, Home, Menu, X, LifeBuoy, User, Shield, LogOut, FileText, MessageSquare, Tag, Wallet, Sparkles } from "lucide-react";
+import { LayoutDashboard, BarChart2, Package, ShoppingBag, ClipboardList, MapPin, Home, Menu, X, LifeBuoy, User, Shield, LogOut, FileText, MessageSquare, Tag, Wallet, Sparkles, DollarSign, Bell } from "lucide-react";
 import { Menu as HeadlessMenu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import LogoutButton from "@/components/LogoutButton";
+import NotificationBell from "@/components/NotificationBell";
 
 type Me = { id: string; role: "BUYER"|"VENDOR"|"ADMIN" };
 
@@ -93,6 +94,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard", label: "Overview", icon: <LayoutDashboard className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/onboarding", label: "Onboarding", icon: <Sparkles className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/analytics", label: "Analytics", icon: <BarChart2 className="h-4 w-4 mr-2" /> },
+    { href: "/dashboard/earnings", label: "Earnings", icon: <DollarSign className="h-4 w-4 mr-2" /> },
+    { href: "/dashboard/notifications", label: "Notifications", icon: <Bell className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/inbox", label: "Inbox", icon: <MessageSquare className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/products", label: "Products", icon: <Package className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/products/new", label: "New Product", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
@@ -103,6 +106,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/settings/payments", label: "Payments", icon: <Wallet className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/addresses", label: "My Addresses", icon: <MapPin className="h-4 w-4 mr-2" /> },
     { href: "/dashboard/shop/appearance", label: "Shop Appearance", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
+    { href: "/dashboard/help", label: "Help & Guide", icon: <LifeBuoy className="h-4 w-4 mr-2" /> },
     // No categories here; categories are managed under Admin only
   ];
 
@@ -113,6 +117,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const getPageTitle = () => {
     if (pathname === "/dashboard") return "Dashboard Overview";
     if (pathname === "/dashboard/analytics") return "Analytics";
+    if (pathname === "/dashboard/earnings") return "My Earnings";
+    if (pathname === "/dashboard/notifications") return "Notifications";
+    if (pathname === "/dashboard/help") return "Help & Guide";
     if (pathname === "/dashboard/products") return "Products";
     if (pathname === "/dashboard/products/new") return "Create New Product";
     if (pathname === "/dashboard/blog") return "Blog";
@@ -208,10 +215,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </h1>
               </div>
               <div className="flex items-center space-x-4">
-                <button className="group flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors">
+                <NotificationBell />
+                <Link href="/dashboard/help" className="group flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors">
                   <LifeBuoy className="h-4 w-4 text-zinc-400 group-hover:text-white transition-colors" />
                   <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">Help</span>
-                </button>
+                </Link>
                 <HeadlessMenu as="div" className="relative inline-block text-left">
                   <div>
                     <HeadlessMenu.Button className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center font-bold text-sm ring-2 ring-offset-2 ring-offset-zinc-900 ring-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75">

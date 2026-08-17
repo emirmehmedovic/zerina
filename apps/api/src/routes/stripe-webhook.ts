@@ -4,6 +4,7 @@ import { stripe } from '../lib/stripe';
 import { ENV } from '../env';
 import { prisma } from '../prisma';
 import { PaymentStatus } from '@prisma/client';
+import { notifyOrderPaid } from '../lib/notifications';
 
 const toJson = (payload: unknown) => JSON.parse(JSON.stringify(payload ?? null));
 
@@ -64,6 +65,8 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   const amountReceived = paymentIntent.amount_received ?? paymentIntent.amount ?? 0;
   const applicationFee = paymentIntent.application_fee_amount ?? 0;
   const transferAmount = paymentIntent.transfer_data?.amount ?? amountReceived;
+  const transferGroup = paymentIntent.transfer_group ?? null;
+  const currency = paymentIntent.currency;
 
   if (!orderId) {
     console.warn('[stripe-webhook] payment_intent.succeeded without orderId metadata', paymentIntentId);
@@ -77,9 +80,9 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     applicationFeeCents: applicationFee,
     transferAmountCents: transferAmount ?? 0,
     netAmountCents: amountReceived - applicationFee,
-    currency: paymentIntent.currency,
+    currency,
     clientSecret: paymentIntent.client_secret ?? null,
-    transferGroup: paymentIntent.transfer_group ?? null,
+    transferGroup,
     rawPayload: toJson(paymentIntent),
   } as const;
 
@@ -107,6 +110,103 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       where: { id: orderId, status: { in: ['PENDING_PAYMENT', 'PROCESSING'] } },
       data: { status: 'PROCESSING', updatedAt: new Date() },
     });
+
+    // Notify vendor of payment received
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        totalCents: true,
+        currency: true,
+        shop: { select: { ownerId: true } },
+      },
+    });
+    if (order?.shop?.ownerId) {
+      notifyOrderPaid({
+        vendorUserId: order.shop.ownerId,
+        orderId: order.id,
+        orderNumber: order.id.slice(-8).toUpperCase(),
+        totalCents: order.totalCents,
+        currency: order.currency,
+      }).catch((err) => console.error('[stripe-webhook] Failed to notify vendor:', err));
+    }
+  }
+
+  // Create transfers to vendor connected accounts
+  await createVendorTransfers(paymentIntent);
+}
+
+/**
+ * Create Stripe transfers to each vendor's connected account
+ * Platform fee is retained, rest goes to vendor
+ */
+async function createVendorTransfers(paymentIntent: Stripe.PaymentIntent) {
+  const transferGroup = paymentIntent.transfer_group;
+  const currency = paymentIntent.currency;
+  const shopSummaryRaw = paymentIntent.metadata?.shopSummary;
+
+  if (!transferGroup || !shopSummaryRaw) {
+    console.warn('[stripe-webhook] missing transferGroup or shopSummary for transfers');
+    return;
+  }
+
+  let shopSummaries: Array<{
+    shopId: string;
+    amountCents: number;
+    platformFeeCents: number;
+    transferAmountCents: number;
+  }>;
+
+  try {
+    shopSummaries = JSON.parse(shopSummaryRaw);
+  } catch {
+    console.error('[stripe-webhook] failed to parse shopSummary metadata');
+    return;
+  }
+
+  for (const summary of shopSummaries) {
+    const { shopId, transferAmountCents } = summary;
+
+    if (transferAmountCents <= 0) {
+      console.log(`[stripe-webhook] skipping transfer for shop ${shopId} - zero amount`);
+      continue;
+    }
+
+    // Get shop's connected Stripe account
+    const shop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { id: true, name: true, stripeAccountId: true, stripeChargesEnabled: true },
+    });
+
+    if (!shop?.stripeAccountId) {
+      console.warn(`[stripe-webhook] shop ${shopId} has no connected Stripe account, skipping transfer`);
+      continue;
+    }
+
+    if (!shop.stripeChargesEnabled) {
+      console.warn(`[stripe-webhook] shop ${shopId} Stripe account not fully enabled, skipping transfer`);
+      continue;
+    }
+
+    try {
+      const transfer = await stripe.transfers.create({
+        amount: transferAmountCents,
+        currency,
+        destination: shop.stripeAccountId,
+        transfer_group: transferGroup,
+        metadata: {
+          shopId,
+          shopName: shop.name,
+          paymentIntentId: paymentIntent.id,
+        },
+      });
+
+      console.log(`[stripe-webhook] created transfer ${transfer.id} to shop ${shopId} for ${transferAmountCents} ${currency}`);
+    } catch (err) {
+      console.error(`[stripe-webhook] failed to create transfer for shop ${shopId}:`, err);
+      // Don't throw - we don't want to fail the webhook for one failed transfer
+      // In production, you'd want to queue this for retry
+    }
   }
 }
 

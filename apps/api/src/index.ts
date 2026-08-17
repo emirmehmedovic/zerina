@@ -27,6 +27,7 @@ import productVariantsRouter from './routes/product-variants';
 import vendorDocumentsRouter from './routes/vendor-documents';
 import chatRouter from './routes/chat';
 import stripeWebhookRouter from './routes/stripe-webhook';
+import notificationsRouter from './routes/notifications';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -100,6 +101,7 @@ app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/admin/analytics', adminAnalyticsRouter);
 app.use('/api/v1/admin/analytics-v2', adminAnalyticsV2Router);
 app.use('/api/v1/chat', chatRouter);
+app.use('/api/v1/notifications', notificationsRouter);
 app.post('/api/v1/stripe/webhook', stripeWebhookRouter);
 
 // Product related routes

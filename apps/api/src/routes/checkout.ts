@@ -9,6 +9,7 @@ import { ENV } from '../env';
 import { PaymentStatus } from '@prisma/client';
 import { enqueueEmail } from '../lib/email';
 import { renderOrderConfirmedEmail } from '../emails/templates';
+import { notifyNewOrder } from '../lib/notifications';
 
 const router = Router();
 
@@ -448,6 +449,27 @@ router.post('/draft', requireAuth, async (req, res) => {
 
     // Queue order confirmation email for the buyer
     emailPromises.push(sendOrderConfirmationEmail(order.id));
+
+    // Notify vendor of new order
+    const vendorShop = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { ownerId: true, name: true },
+    });
+    if (vendorShop?.ownerId) {
+      const buyer = await prisma.user.findUnique({
+        where: { id: user.sub },
+        select: { name: true, email: true },
+      });
+      notifyNewOrder({
+        vendorUserId: vendorShop.ownerId,
+        orderId: order.id,
+        orderNumber: order.id.slice(-8).toUpperCase(),
+        customerName: buyer?.name ?? buyer?.email ?? 'Customer',
+        totalCents: order.totalCents,
+        currency: order.currency,
+        itemCount: list.length,
+      }).catch((err) => console.error('[checkout] Failed to notify vendor:', err));
+    }
   }
 
   if (intent) {

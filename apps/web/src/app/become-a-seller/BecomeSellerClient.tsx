@@ -371,6 +371,17 @@ export default function BecomeSellerClient() {
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Marketing placement for featured launches
                 </div>
               </div>
+
+              <div className="rounded-2xl border border-blue-100/70 bg-blue-50/50 p-4">
+                <p className="text-sm text-amber-800/90">
+                  <span className="font-semibold text-amber-900">New to selling?</span>{" "}
+                  Check out our{" "}
+                  <a href="/seller-guide" className="font-semibold text-blue-600 hover:underline">
+                    Complete Seller Guide
+                  </a>{" "}
+                  for step-by-step instructions on setting up your shop, connecting payments, and making your first sale.
+                </p>
+              </div>
             </section>
 
             <section>

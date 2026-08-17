@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import AdminGuard from "./Guard";
-import { Home, LayoutDashboard, Package, ShoppingBag, Store, UserPlus, Menu, X, LifeBuoy, User, Shield, BarChart2, ClipboardList } from "lucide-react";
+import { Home, LayoutDashboard, Package, ShoppingBag, Store, UserPlus, Menu, X, LifeBuoy, User, Shield, BarChart2, ClipboardList, DollarSign, HelpCircle } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { Menu as HeadlessMenu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
@@ -19,22 +19,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { href: "/admin", label: "Overview", icon: <LayoutDashboard className="h-4 w-4 mr-2" /> },
     { href: "/admin/analytics", label: "Analytics", icon: <BarChart2 className="h-4 w-4 mr-2" /> },
+    { href: "/admin/earnings", label: "Earnings", icon: <DollarSign className="h-4 w-4 mr-2" /> },
     { href: "/admin/inventory", label: "Inventory", icon: <Package className="h-4 w-4 mr-2" /> },
     { href: "/admin/vendor-applications", label: "Vendor Applications", icon: <ClipboardList className="h-4 w-4 mr-2" /> },
     { href: "/admin/products/new", label: "New Product", icon: <ShoppingBag className="h-4 w-4 mr-2" /> },
     { href: "/admin/shops", label: "Shops", icon: <Store className="h-4 w-4 mr-2" /> },
     { href: "/admin/admins/new", label: "Create Admin", icon: <UserPlus className="h-4 w-4 mr-2" /> },
     { href: "/admin/categories", label: "Categories", icon: <Package className="h-4 w-4 mr-2" /> },
+    { href: "/admin/help", label: "Help & Guide", icon: <HelpCircle className="h-4 w-4 mr-2" /> },
   ];
 
   const getPageTitle = () => {
     if (pathname === "/admin") return "Admin Overview";
     if (pathname === "/admin/inventory") return "Inventory Management";
+    if (pathname === "/admin/earnings") return "Platform Earnings";
     if (pathname === "/admin/products/new") return "Create New Product";
     if (pathname === "/admin/shops") return "Shops Management";
     if (pathname === "/admin/vendor-applications") return "Vendor Applications";
     if (pathname === "/admin/categories") return "Categories";
     if (pathname === "/admin/admins/new") return "Create Admin Account";
+    if (pathname === "/admin/help") return "Help & Guide";
     return "Admin Panel";
   };
 
@@ -87,10 +91,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <h1 className="text-xl font-semibold text-white tracking-wide">{getPageTitle()}</h1>
               </div>
               <div className="flex items-center space-x-4">
-                <button className="group flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors">
+                <Link href="/admin/help" className="group flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors">
                   <LifeBuoy className="h-4 w-4 text-zinc-400 group-hover:text-white transition-colors" />
                   <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">Help</span>
-                </button>
+                </Link>
                 <HeadlessMenu as="div" className="relative inline-block text-left">
                   <div>
                     <HeadlessMenu.Button className="h-10 w-10 rounded-full bg-gradient-to-br from-red-500 to-orange-600 text-white flex items-center justify-center font-bold text-sm ring-2 ring-offset-2 ring-offset-zinc-900 ring-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75">

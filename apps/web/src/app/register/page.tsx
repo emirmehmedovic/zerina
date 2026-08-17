@@ -16,7 +16,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   const onGoogle = () => {
-    const redirect = `${window.location.origin}/account`;
+    const redirect = `${window.location.origin}/`;
     window.location.href = `${API_URL}/api/v1/auth/google/start?redirect=${encodeURIComponent(redirect)}`;
   };
 
@@ -36,8 +36,7 @@ export default function RegisterPage() {
         throw new Error(body?.error || `Register failed (${res.status})`);
       }
       push({ type: "success", title: "Account created", message: "You are now signed in." });
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);

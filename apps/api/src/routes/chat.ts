@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { notifyNewInquiry } from '../lib/notifications';
 
 const router = Router();
 
@@ -139,6 +140,32 @@ router.post('/conversations/:id/messages', requireAuth, async (req, res) => {
     const msg = await prisma.message.create({ data: { conversationId: id, senderId: user.sub, body: body.trim() } });
 
     await prisma.conversation.update({ where: { id }, data: { lastMessageAt: new Date() } });
+
+    // Notify other participants (vendor) of new message
+    const conversation = await prisma.conversation.findUnique({
+      where: { id },
+      select: {
+        shopId: true,
+        productId: true,
+        participants: { select: { userId: true } },
+        shop: { select: { ownerId: true } },
+        product: { select: { title: true } },
+      },
+    });
+
+    if (conversation?.shop?.ownerId && conversation.shop.ownerId !== user.sub) {
+      const sender = await prisma.user.findUnique({
+        where: { id: user.sub },
+        select: { name: true, email: true },
+      });
+      notifyNewInquiry({
+        vendorUserId: conversation.shop.ownerId,
+        conversationId: id,
+        customerName: sender?.name ?? sender?.email ?? 'Customer',
+        preview: body.trim().slice(0, 100),
+        productTitle: conversation.product?.title,
+      }).catch((err) => console.error('[chat] Failed to notify vendor:', err));
+    }
 
     return res.status(201).json(msg);
   } catch (err) {

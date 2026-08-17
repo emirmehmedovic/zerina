@@ -9,6 +9,7 @@ import {
 } from '../emails/templates';
 import { enqueueEmail } from '../lib/email';
 import { ENV } from '../env';
+import { notifyShopApproved } from '../lib/notifications';
 
 const router = Router();
 
@@ -193,6 +194,22 @@ router.patch('/vendor-applications/:id', requireAuth, requireRole('ADMIN'), asyn
 
   if (status === 'APPROVED') {
     await prisma.user.update({ where: { id: application.userId }, data: { role: 'VENDOR' } });
+    // Also activate the vendor's shop if it exists and is pending
+    const activatedShops = await prisma.shop.findMany({
+      where: { ownerId: application.userId, status: 'PENDING_APPROVAL' },
+      select: { id: true, name: true },
+    });
+    await prisma.shop.updateMany({
+      where: { ownerId: application.userId, status: 'PENDING_APPROVAL' },
+      data: { status: 'ACTIVE' },
+    });
+    // Send notification for shop approval
+    for (const shop of activatedShops) {
+      notifyShopApproved({
+        vendorUserId: application.userId,
+        shopName: shop.name,
+      }).catch((err) => console.error('[admin] Failed to notify shop approval:', err));
+    }
     if (applicant?.email) {
       const email = renderVendorApplicationApprovedEmail({
         applicantName: applicant.name,
@@ -204,6 +221,11 @@ router.patch('/vendor-applications/:id', requireAuth, requireRole('ADMIN'), asyn
 
   if (status === 'REJECTED') {
     await prisma.user.update({ where: { id: application.userId }, data: { role: 'BUYER' } });
+    // Suspend the vendor's shop if it exists
+    await prisma.shop.updateMany({
+      where: { ownerId: application.userId, status: { in: ['PENDING_APPROVAL', 'ACTIVE'] } },
+      data: { status: 'SUSPENDED' },
+    });
     if (applicant?.email) {
       const email = renderVendorApplicationRejectedEmail({
         applicantName: applicant.name,
@@ -229,6 +251,116 @@ router.patch('/vendor-applications/:id', requireAuth, requireRole('ADMIN'), asyn
   });
 
   res.json({ application: updated });
+});
+
+// GET /api/v1/admin/earnings - Platform earnings dashboard
+router.get('/earnings', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  const { period = '30d' } = req.query as { period?: string };
+
+  // Calculate date range
+  let startDate = new Date();
+  switch (period) {
+    case '7d':
+      startDate.setDate(startDate.getDate() - 7);
+      break;
+    case '30d':
+      startDate.setDate(startDate.getDate() - 30);
+      break;
+    case '90d':
+      startDate.setDate(startDate.getDate() - 90);
+      break;
+    case 'all':
+      startDate = new Date(0);
+      break;
+    default:
+      startDate.setDate(startDate.getDate() - 30);
+  }
+
+  // Get all successful payments in period
+  const payments = await prisma.payment.findMany({
+    where: {
+      status: 'SUCCEEDED',
+      createdAt: { gte: startDate },
+    },
+    select: {
+      id: true,
+      amountCents: true,
+      applicationFeeCents: true,
+      transferAmountCents: true,
+      netAmountCents: true,
+      currency: true,
+      createdAt: true,
+      order: {
+        select: {
+          id: true,
+          shop: {
+            select: { id: true, name: true, slug: true },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Aggregate totals
+  const totals = payments.reduce(
+    (acc, p) => ({
+      totalRevenue: acc.totalRevenue + p.amountCents,
+      platformFees: acc.platformFees + p.applicationFeeCents,
+      vendorPayouts: acc.vendorPayouts + p.transferAmountCents,
+      transactionCount: acc.transactionCount + 1,
+    }),
+    { totalRevenue: 0, platformFees: 0, vendorPayouts: 0, transactionCount: 0 }
+  );
+
+  // Group by shop
+  const shopEarnings = new Map<string, { shopId: string; shopName: string; shopSlug: string; revenue: number; platformFee: number; vendorPayout: number; orders: number }>();
+  for (const p of payments) {
+    const shop = p.order?.shop;
+    if (!shop) continue;
+    const existing = shopEarnings.get(shop.id) ?? {
+      shopId: shop.id,
+      shopName: shop.name,
+      shopSlug: shop.slug,
+      revenue: 0,
+      platformFee: 0,
+      vendorPayout: 0,
+      orders: 0,
+    };
+    existing.revenue += p.amountCents;
+    existing.platformFee += p.applicationFeeCents;
+    existing.vendorPayout += p.transferAmountCents;
+    existing.orders += 1;
+    shopEarnings.set(shop.id, existing);
+  }
+
+  // Daily breakdown for chart
+  const dailyMap = new Map<string, { date: string; revenue: number; platformFee: number }>();
+  for (const p of payments) {
+    const dateKey = p.createdAt.toISOString().split('T')[0];
+    const existing = dailyMap.get(dateKey) ?? { date: dateKey, revenue: 0, platformFee: 0 };
+    existing.revenue += p.amountCents;
+    existing.platformFee += p.applicationFeeCents;
+    dailyMap.set(dateKey, existing);
+  }
+
+  const dailyBreakdown = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+
+  res.json({
+    period,
+    totals,
+    shopBreakdown: Array.from(shopEarnings.values()).sort((a, b) => b.platformFee - a.platformFee),
+    dailyBreakdown,
+    recentPayments: payments.slice(0, 20).map((p) => ({
+      id: p.id,
+      amountCents: p.amountCents,
+      platformFeeCents: p.applicationFeeCents,
+      transferAmountCents: p.transferAmountCents,
+      currency: p.currency,
+      createdAt: p.createdAt,
+      shopName: p.order?.shop?.name ?? 'Unknown',
+    })),
+  });
 });
 
 export default router;

@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const onGoogle = () => {
-    const redirect = `${window.location.origin}/account`;
+    const redirect = `${window.location.origin}/`;
     window.location.href = `${API_URL}/api/v1/auth/google/start?redirect=${encodeURIComponent(redirect)}`;
   };
 
@@ -34,8 +34,7 @@ export default function LoginPage() {
         throw new Error(body?.error || `Login failed (${res.status})`);
       }
       push({ type: "success", title: "Signed in", message: "Welcome back!" });
-      router.push("/account");
-      router.refresh();
+      window.location.href = "/";
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -137,6 +136,19 @@ export default function LoginPage() {
           <p className="mt-4 text-sm text-center text-amber-900/70">
             Don&apos;t have an account? <a className="font-semibold text-amber-900 hover:underline" href="/register">Register</a>
           </p>
+
+          <div className="mt-4 pt-4 border-t border-amber-100">
+            <p className="text-sm text-center text-amber-900/70">
+              Want to sell on our marketplace?{" "}
+              <a className="font-semibold text-rose-600 hover:underline" href="/seller-guide">
+                Read our Seller Guide
+              </a>
+              {" "}or{" "}
+              <a className="font-semibold text-rose-600 hover:underline" href="/become-a-seller">
+                Become a Seller
+              </a>
+            </p>
+          </div>
         </form>
       </div>
       {/* Styled-JSX animations for background SVGs */}

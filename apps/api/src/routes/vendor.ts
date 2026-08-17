@@ -908,8 +908,138 @@ router.get('/analytics/customer-insights', requireAuth, ensureApprovedVendor, as
   });
 });
 
-export default router;
- 
+// GET /api/v1/vendor/earnings — earnings breakdown for vendor
+router.get('/earnings', requireAuth, ensureApprovedVendor, async (req, res) => {
+  const user = (req as any).user as { sub: string };
+  const { period = '30d' } = req.query as { period?: string };
+
+  const shop = await prisma.shop.findUnique({
+    where: { ownerId: user.sub },
+    select: { id: true, name: true },
+  });
+
+  if (!shop) {
+    return res.status(404).json({ error: 'shop_not_found' });
+  }
+
+  // Calculate date range
+  let startDate = new Date();
+  switch (period) {
+    case '7d':
+      startDate.setDate(startDate.getDate() - 7);
+      break;
+    case '30d':
+      startDate.setDate(startDate.getDate() - 30);
+      break;
+    case '90d':
+      startDate.setDate(startDate.getDate() - 90);
+      break;
+    case 'all':
+      startDate = new Date(0);
+      break;
+    default:
+      startDate.setDate(startDate.getDate() - 30);
+  }
+
+  // Get orders for this shop with payments
+  const orders = await prisma.order.findMany({
+    where: {
+      shopId: shop.id,
+      status: { in: ['PROCESSING', 'SHIPPED', 'DELIVERED'] },
+      createdAt: { gte: startDate },
+    },
+    select: {
+      id: true,
+      totalCents: true,
+      discountCents: true,
+      currency: true,
+      createdAt: true,
+      status: true,
+      payments: {
+        where: { status: 'SUCCEEDED' },
+        select: {
+          id: true,
+          amountCents: true,
+          applicationFeeCents: true,
+          transferAmountCents: true,
+          currency: true,
+          createdAt: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Calculate totals
+  let totalRevenue = 0;
+  let totalPlatformFees = 0;
+  let totalEarnings = 0;
+  let orderCount = 0;
+
+  const dailyMap = new Map<string, { date: string; revenue: number; earnings: number; orders: number }>();
+
+  for (const order of orders) {
+    for (const payment of order.payments) {
+      totalRevenue += payment.amountCents;
+      totalPlatformFees += payment.applicationFeeCents;
+      totalEarnings += payment.transferAmountCents;
+      orderCount += 1;
+
+      const dateKey = payment.createdAt.toISOString().split('T')[0];
+      const existing = dailyMap.get(dateKey) ?? { date: dateKey, revenue: 0, earnings: 0, orders: 0 };
+      existing.revenue += payment.amountCents;
+      existing.earnings += payment.transferAmountCents;
+      existing.orders += 1;
+      dailyMap.set(dateKey, existing);
+    }
+  }
+
+  const dailyBreakdown = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+
+  // Pending payouts (orders processing but not yet transferred)
+  const pendingOrders = await prisma.order.findMany({
+    where: {
+      shopId: shop.id,
+      status: { in: ['PROCESSING', 'SHIPPED'] },
+    },
+    select: {
+      totalCents: true,
+      payments: {
+        where: { status: 'SUCCEEDED' },
+        select: { transferAmountCents: true },
+      },
+    },
+  });
+
+  const pendingPayoutCents = pendingOrders.reduce((sum, o) => {
+    return sum + o.payments.reduce((pSum, p) => pSum + p.transferAmountCents, 0);
+  }, 0);
+
+  res.json({
+    period,
+    shop: { id: shop.id, name: shop.name },
+    totals: {
+      revenue: totalRevenue,
+      platformFees: totalPlatformFees,
+      earnings: totalEarnings,
+      orderCount,
+      pendingPayout: pendingPayoutCents,
+    },
+    dailyBreakdown,
+    recentOrders: orders.slice(0, 10).map((o) => ({
+      id: o.id,
+      totalCents: o.totalCents,
+      discountCents: o.discountCents,
+      currency: o.currency,
+      status: o.status,
+      createdAt: o.createdAt,
+      paymentAmount: o.payments.reduce((sum, p) => sum + p.amountCents, 0),
+      platformFee: o.payments.reduce((sum, p) => sum + p.applicationFeeCents, 0),
+      earnings: o.payments.reduce((sum, p) => sum + p.transferAmountCents, 0),
+    })),
+  });
+});
+
 // GET /api/v1/vendor/orders — list orders for the vendor's shop
 router.get('/orders', requireAuth, ensureApprovedVendor, validateQuery(vendorOrdersQuerySchema), async (req, res) => {
   const user = (req as any).user as { sub: string };
@@ -1504,3 +1634,5 @@ router.get('/inventory/low-stock', requireAuth, ensureApprovedVendor, async (req
   });
   res.json({ items });
 });
+
+export default router;

@@ -281,6 +281,7 @@ model User {
   // Chat relations
   conversationParticipants ConversationParticipant[]
   messages                 Message[]
+  notifications            Notification[]
 
   @@index([name])
 }
@@ -532,4 +533,42 @@ model BlogPost {
   @@index([status, publishedAt])
   @@index([authorId, createdAt])
   @@index([shopId, createdAt])
+}
+
+enum NotificationType {
+  ORDER_NEW
+  ORDER_PAID
+  ORDER_SHIPPED
+  ORDER_DELIVERED
+  ORDER_CANCELLED
+  ORDER_REFUNDED
+  INQUIRY_NEW
+  INQUIRY_REPLY
+  REVIEW_NEW
+  PAYOUT_SENT
+  PAYOUT_FAILED
+  SHOP_APPROVED
+  SHOP_SUSPENDED
+  LOW_STOCK
+  SYSTEM
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String
+  message     String
+  link        String?          // URL to navigate to when clicked
+  metadata    Json?            // Additional data (orderId, productId, etc.)
+  read        Boolean          @default(false)
+  readAt      DateTime?
+  emailSent   Boolean          @default(false)
+  emailSentAt DateTime?
+  createdAt   DateTime         @default(now())
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+  @@index([userId, createdAt])
 }

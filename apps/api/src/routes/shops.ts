@@ -70,6 +70,22 @@ router.post('/', requireAuth, async (req, res) => {
     refreshSession(res, user.sub, 'VENDOR');
   }
 
+  // Create a VendorApplication if one doesn't exist
+  const existingApplication = await prisma.vendorApplication.findFirst({
+    where: { userId: user.sub },
+  });
+  if (!existingApplication) {
+    await prisma.vendorApplication.create({
+      data: {
+        userId: user.sub,
+        legalName: parsed.data.name,
+        country: 'Unknown',
+        status: 'PENDING',
+        identityVerificationStatus: 'NOT_REQUIRED',
+      } as any,
+    });
+  }
+
   // Send shop creation email
   const dbUser = await prisma.user.findUnique({ where: { id: user.sub }, select: { email: true, name: true } });
   if (dbUser) {
