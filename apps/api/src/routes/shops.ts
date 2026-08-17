@@ -71,11 +71,11 @@ router.post('/', requireAuth, async (req, res) => {
   }
 
   // Create a VendorApplication if one doesn't exist
-  const existingApplication = await prisma.vendorApplication.findFirst({
+  let application = await prisma.vendorApplication.findFirst({
     where: { userId: user.sub },
   });
-  if (!existingApplication) {
-    await prisma.vendorApplication.create({
+  if (!application) {
+    application = await prisma.vendorApplication.create({
       data: {
         userId: user.sub,
         legalName: parsed.data.name,
@@ -85,6 +85,12 @@ router.post('/', requireAuth, async (req, res) => {
       } as any,
     });
   }
+
+  // Auto-link any orphaned vendor documents to this application
+  await prisma.vendorDocument.updateMany({
+    where: { userId: user.sub, applicationId: null },
+    data: { applicationId: application.id },
+  });
 
   // Send shop creation email
   const dbUser = await prisma.user.findUnique({ where: { id: user.sub }, select: { email: true, name: true } });
