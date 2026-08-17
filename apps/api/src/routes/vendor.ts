@@ -95,6 +95,12 @@ async function reassignVendorDocuments(params: {
       where: { userId, id: { in: documentIds } },
       data: { applicationId },
     });
+  } else {
+    // Auto-link all orphaned documents (documents without an applicationId) for this user
+    await prisma.vendorDocument.updateMany({
+      where: { userId, applicationId: null },
+      data: { applicationId },
+    });
   }
 }
 
